@@ -1,4 +1,4 @@
-package com.example.nexstock
+package com.dsmg11.nexstock
 
 import org.junit.Test
 

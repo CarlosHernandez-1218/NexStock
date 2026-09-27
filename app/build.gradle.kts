@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.nexstock"
+    namespace = "com.dsmg11.nexstock"
     compileSdk {
         version = release(37)
     }

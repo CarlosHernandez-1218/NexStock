@@ -1,4 +1,4 @@
-package com.example.nexstock.ui.theme
+package com.dsmg11.nexstock.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
