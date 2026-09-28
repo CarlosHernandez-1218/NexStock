@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,9 +22,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun HomeScreen(
+    onGoToProfile: () -> Unit,
     onLogout: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
+    val profile by viewModel.profile.collectAsStateWithLifecycle()
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -35,12 +39,15 @@ fun HomeScreen(
             color = MaterialTheme.colorScheme.primary
         )
         Text(viewModel.userEmail)
-        val profile by viewModel.profile.collectAsStateWithLifecycle()
         Text(
             text = "Rol: ${profile?.role?.displayName ?: "Cargando..."}",
             color = MaterialTheme.colorScheme.secondary
         )
         Spacer(Modifier.height(24.dp))
+        OutlinedButton(onClick = onGoToProfile, modifier = Modifier.fillMaxWidth()) {
+            Text("Mi perfil")
+        }
+        Spacer(Modifier.height(8.dp))
         Button(
             onClick = {
                 viewModel.signOut()

@@ -71,9 +71,10 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     override suspend fun updateBasicInfo(uid: String, fullName: String, phone: String): Result<Unit> =
         runCatching {
-            users.document(uid).update(
-                mapOf("fullName" to fullName.trim(), "phone" to phone.trim())
-            ).await()
+            // 1. Se guarda en Room al instante (funciona sin internet)
+            profileDao.updateBasicInfo(uid, fullName, phone)
+            // 2. Firestore lo encola y lo sube cuando haya conexión (sin await para no bloquear offline)
+            users.document(uid).update(mapOf("fullName" to fullName, "phone" to phone))
             Unit
         }
 
