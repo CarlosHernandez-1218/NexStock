@@ -6,6 +6,7 @@ import com.dsmg11.nexstock.domain.model.UserProfile
 import com.dsmg11.nexstock.domain.usecase.GetCurrentUserUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.ObserveUserProfileUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.UpdateProfileUseCase
+import com.dsmg11.nexstock.domain.usecase.profile.UploadProfilePhotoUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,7 @@ data class ProfileUiState(
     val phone: String = "",
     val fieldsLoaded: Boolean = false,
     val isSaving: Boolean = false,
+    val isUploadingPhoto: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null
 )
@@ -28,7 +30,8 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
     getCurrentUser: GetCurrentUserUseCase,
     observeUserProfile: ObserveUserProfileUseCase,
-    private val updateProfile: UpdateProfileUseCase
+    private val updateProfile: UpdateProfileUseCase,
+    private val uploadProfilePhoto: UploadProfilePhotoUseCase
 ) : ViewModel() {
 
     private val uid = getCurrentUser()?.uid
@@ -82,6 +85,22 @@ class ProfileViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(isSaving = false, errorMessage = e.message ?: "No se pudo guardar")
                     }
+                }
+        }
+    }
+
+    fun onPhotoSelected(localUri: String) {
+        val id = uid ?: return
+        if (_uiState.value.isUploadingPhoto) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploadingPhoto = true, errorMessage = null, successMessage = null) }
+            uploadProfilePhoto(id, localUri)
+                .onSuccess {
+                    _uiState.update { it.copy(isUploadingPhoto = false, successMessage = "Foto actualizada") }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isUploadingPhoto = false, errorMessage = e.message) }
                 }
         }
     }

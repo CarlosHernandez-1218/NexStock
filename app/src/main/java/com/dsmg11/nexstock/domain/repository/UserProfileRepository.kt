@@ -11,4 +11,5 @@ interface UserProfileRepository {
     suspend fun updateBasicInfo(uid: String, fullName: String, phone: String): Result<Unit>
     fun observeAllProfiles(): Flow<List<UserProfile>>
     suspend fun updateRoleAndLines(uid: String, role: UserRole, lines: List<ProductLine>): Result<Unit>
+    suspend fun uploadProfilePhoto(uid: String, localUri: String): Result<String>
 }
