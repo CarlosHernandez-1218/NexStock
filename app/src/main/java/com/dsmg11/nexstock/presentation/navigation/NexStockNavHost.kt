@@ -14,6 +14,8 @@ import com.dsmg11.nexstock.presentation.auth.RegisterScreen
 import com.dsmg11.nexstock.presentation.home.HomeScreen
 import com.dsmg11.nexstock.presentation.profile.ProfileScreen
 import androidx.compose.ui.platform.LocalContext
+import com.dsmg11.nexstock.domain.model.AppFeature
+import com.dsmg11.nexstock.presentation.users.UsersScreen
 
 @Composable
 fun NexStockNavHost(
@@ -55,12 +57,14 @@ fun NexStockNavHost(
             HomeScreen(
                 onGoToProfile = { navController.navigate(Screen.Profile.route) },
                 onOpenFeature = { feature ->
-                    // Por ahora ninguna opción tiene pantalla; la de Usuarios llega en el Paso 6
-                    Toast.makeText(
-                        context,
-                        "${feature.title}: disponible en el Sprint ${feature.sprint}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    when (feature) {
+                        AppFeature.USUARIOS -> navController.navigate(Screen.Users.route)
+                        else -> Toast.makeText(
+                            context,
+                            "${feature.title}: disponible en el Sprint ${feature.sprint}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
@@ -71,6 +75,9 @@ fun NexStockNavHost(
         }
         composable(Screen.Profile.route) {
             ProfileScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Screen.Users.route) {
+            UsersScreen(onBack = { navController.popBackStack() })
         }
     }
 }

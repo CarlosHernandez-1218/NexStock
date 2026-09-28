@@ -77,6 +77,31 @@ class UserProfileRepositoryImpl @Inject constructor(
             users.document(uid).update(mapOf("fullName" to fullName, "phone" to phone))
             Unit
         }
+    // Solo el Administrador puede leer la lista completa (lo garantizan las reglas de Firestore)
+    override fun observeAllProfiles(): Flow<List<UserProfile>> = callbackFlow {
+        val registration = users.orderBy("email").addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            trySend(snapshot?.documents?.mapNotNull { it.toUserProfile() }.orEmpty())
+        }
+        awaitClose { registration.remove() }
+    }
+
+    override suspend fun updateRoleAndLines(
+        uid: String,
+        role: UserRole,
+        lines: List<ProductLine>
+    ): Result<Unit> = runCatching {
+        users.document(uid).update(
+            mapOf(
+                "role" to role.name,
+                "assignedLines" to lines.map { it.name }
+            )
+        ).await()
+        Unit
+    }
 
     private companion object {
         const val USERS_COLLECTION = "users"
