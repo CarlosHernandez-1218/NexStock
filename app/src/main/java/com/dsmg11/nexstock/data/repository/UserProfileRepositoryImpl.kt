@@ -1,5 +1,9 @@
 package com.dsmg11.nexstock.data.repository
 
+import androidx.core.app.PendingIntentCompat.send
+import com.dsmg11.nexstock.data.local.UserProfileDao
+import com.dsmg11.nexstock.data.local.toDomain
+import com.dsmg11.nexstock.data.local.toEntity
 import com.dsmg11.nexstock.domain.model.ProductLine
 import com.dsmg11.nexstock.domain.model.UserProfile
 import com.dsmg11.nexstock.domain.model.UserRole
@@ -10,17 +14,34 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class UserProfileRepositoryImpl @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val profileDao: UserProfileDao
 ) : UserProfileRepository {
 
     private val users get() = firestore.collection(USERS_COLLECTION)
 
     // Escucha el perfil en tiempo real: si el Administrador cambia el rol, la app se entera al instante
-    override fun observeProfile(uid: String): Flow<UserProfile?> = callbackFlow {
+    // Offline-first: la app lee de Room; Firestore solo mantiene Room actualizado
+    override fun observeProfile(uid: String): Flow<UserProfile?> = channelFlow {
+        launch {
+            remoteProfile(uid)
+                .catch { /* Sin conexión: se sigue mostrando la copia local */ }
+                .collect { profile -> profile?.let { profileDao.upsert(it.toEntity()) } }
+        }
+        profileDao.observe(uid)
+            .map { it?.toDomain() }
+            .collect { send(it) }
+    }
+
+    private fun remoteProfile(uid: String): Flow<UserProfile?> = callbackFlow {
         val registration = users.document(uid).addSnapshotListener { snapshot, error ->
             if (error != null) {
                 close(error)

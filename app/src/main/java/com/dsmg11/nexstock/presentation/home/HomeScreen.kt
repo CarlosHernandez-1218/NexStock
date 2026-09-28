@@ -12,10 +12,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun HomeScreen(
@@ -33,6 +35,11 @@ fun HomeScreen(
             color = MaterialTheme.colorScheme.primary
         )
         Text(viewModel.userEmail)
+        val profile by viewModel.profile.collectAsStateWithLifecycle()
+        Text(
+            text = "Rol: ${profile?.role?.displayName ?: "Cargando..."}",
+            color = MaterialTheme.colorScheme.secondary
+        )
         Spacer(Modifier.height(24.dp))
         Button(
             onClick = {
