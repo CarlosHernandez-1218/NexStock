@@ -1,5 +1,6 @@
 package com.dsmg11.nexstock.presentation.navigation
 
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -12,6 +13,7 @@ import com.dsmg11.nexstock.presentation.auth.LoginScreen
 import com.dsmg11.nexstock.presentation.auth.RegisterScreen
 import com.dsmg11.nexstock.presentation.home.HomeScreen
 import com.dsmg11.nexstock.presentation.profile.ProfileScreen
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun NexStockNavHost(
@@ -49,8 +51,17 @@ fun NexStockNavHost(
             ForgotPasswordScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.Home.route) {
+            val context = LocalContext.current
             HomeScreen(
                 onGoToProfile = { navController.navigate(Screen.Profile.route) },
+                onOpenFeature = { feature ->
+                    // Por ahora ninguna opción tiene pantalla; la de Usuarios llega en el Paso 6
+                    Toast.makeText(
+                        context,
+                        "${feature.title}: disponible en el Sprint ${feature.sprint}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
