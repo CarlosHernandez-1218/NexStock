@@ -85,4 +85,6 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.exifinterface)
+    // Sincronización en segundo plano
+    implementation(libs.androidx.work.runtime)
 }
