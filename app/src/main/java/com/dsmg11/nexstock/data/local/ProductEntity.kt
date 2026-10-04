@@ -21,7 +21,8 @@ data class ProductEntity(
     val status: String,
     val rotation: String,
     val barcode: String?,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val pendingSync: Boolean = false
 )
 
 fun ProductEntity.toDomain() = Product(
@@ -37,7 +38,8 @@ fun ProductEntity.toDomain() = Product(
     status = ProductStatus.fromName(status),
     rotation = RotationLevel.fromName(rotation),
     barcode = barcode,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
+    pendingSync = pendingSync
 )
 
 fun Product.toEntity() = ProductEntity(
@@ -53,5 +55,6 @@ fun Product.toEntity() = ProductEntity(
     status = status.name,
     rotation = rotation.name,
     barcode = barcode,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
+    pendingSync = pendingSync
 )

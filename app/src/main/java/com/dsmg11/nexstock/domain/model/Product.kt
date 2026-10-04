@@ -13,5 +13,6 @@ data class Product(
     val status: ProductStatus = ProductStatus.ACTIVO,
     val rotation: RotationLevel = RotationLevel.MEDIA,
     val barcode: String? = null,      //  MOV-21
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val pendingSync: Boolean = false   // true = cambio guardado en el celular, falta subirlo
 )

@@ -46,6 +46,7 @@ import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.ProductStatus
 import java.util.Locale
 import com.dsmg11.nexstock.domain.model.RotationLevel
+import androidx.compose.material.icons.outlined.CloudUpload
 @Composable
 fun CatalogScreen(
     onBack: () -> Unit,
@@ -137,6 +138,22 @@ private fun ProductCard(product: Product, onClick: (() -> Unit)?) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (product.pendingSync) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Outlined.CloudUpload,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.tertiary
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                "Pendiente de sincronizar",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(

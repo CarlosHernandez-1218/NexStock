@@ -1,8 +1,10 @@
 package com.dsmg11.nexstock.data.repository
 
+import android.content.Context
 import com.dsmg11.nexstock.data.local.ProductDao
 import com.dsmg11.nexstock.data.local.toDomain
 import com.dsmg11.nexstock.data.local.toEntity
+import com.dsmg11.nexstock.data.sync.ProductSyncWorker
 import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.ProductLine
 import com.dsmg11.nexstock.domain.model.ProductStatus
@@ -10,6 +12,7 @@ import com.dsmg11.nexstock.domain.model.RotationLevel
 import com.dsmg11.nexstock.domain.repository.ProductRepository
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -20,6 +23,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class ProductRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val firestore: FirebaseFirestore,
     private val productDao: ProductDao
 ) : ProductRepository {
@@ -31,7 +35,7 @@ class ProductRepositoryImpl @Inject constructor(
         launch {
             remoteProducts()
                 .catch { /* Sin conexión: se sigue mostrando la copia local */ }
-                .collect { list -> productDao.upsertAll(list.map { it.toEntity() }) }
+                .collect { list -> productDao.upsertFromRemote(list.map { it.toEntity() }) }
         }
         productDao.observeAll()
             .map { list -> list.map { it.toDomain() } }
@@ -45,9 +49,9 @@ class ProductRepositoryImpl @Inject constructor(
         productDao.getByCode(code) != null
 
     override suspend fun saveProduct(product: Product): Result<Unit> = runCatching {
-        val stamped = product.copy(updatedAt = System.currentTimeMillis())
-        productDao.upsert(stamped.toEntity())                        // 1. Se guarda al instante en Room
-        products.document(stamped.code).set(stamped.toFirestoreMap()) // 2. Firestore lo sube cuando haya red
+        val stamped = product.copy(updatedAt = System.currentTimeMillis(), pendingSync = true)
+        productDao.upsert(stamped.toEntity())   // 1. Se guarda al instante en Room
+        ProductSyncWorker.enqueue(context)      // 2. WorkManager lo sube cuando haya internet
     }
 
     private fun remoteProducts(): Flow<List<Product>> = callbackFlow {
@@ -66,7 +70,8 @@ class ProductRepositoryImpl @Inject constructor(
     }
 }
 
-private fun Product.toFirestoreMap(): Map<String, Any?> = mapOf(
+// Público porque también lo usa ProductSyncWorker
+fun Product.toFirestoreMap(): Map<String, Any?> = mapOf(
     "code" to code,
     "name" to name,
     "brand" to brand,
