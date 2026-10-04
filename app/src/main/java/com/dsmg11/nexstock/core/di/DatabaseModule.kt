@@ -3,6 +3,7 @@ package com.dsmg11.nexstock.core.di
 import android.content.Context
 import androidx.room.Room
 import com.dsmg11.nexstock.data.local.NexStockDatabase
+import com.dsmg11.nexstock.data.local.ProductDao
 import com.dsmg11.nexstock.data.local.UserProfileDao
 import dagger.Module
 import dagger.Provides
@@ -18,9 +19,15 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): NexStockDatabase =
-        Room.databaseBuilder(context, NexStockDatabase::class.java, "nexstock.db").build()
+        Room.databaseBuilder(context, NexStockDatabase::class.java, "nexstock.db")
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
 
     @Provides
     fun provideUserProfileDao(database: NexStockDatabase): UserProfileDao =
         database.userProfileDao()
+
+    @Provides
+    fun provideProductDao(database: NexStockDatabase): ProductDao =
+        database.productDao()
 }
