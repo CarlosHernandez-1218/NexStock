@@ -45,7 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.ProductStatus
 import java.util.Locale
-
+import com.dsmg11.nexstock.domain.model.RotationLevel
 @Composable
 fun CatalogScreen(
     onBack: () -> Unit,
@@ -152,8 +152,10 @@ private fun ProductCard(product: Product, onClick: (() -> Unit)?) {
             )
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
+                RotationChip(product.rotation)
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    "Stock mín.: ${product.minStock} · ${product.rotation.displayName}",
+                    "Stock mín.: ${product.minStock}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
@@ -175,6 +177,22 @@ private fun StatusChip(status: ProductStatus) {
     Surface(color = container, contentColor = content, shape = RoundedCornerShape(50)) {
         Text(
             status.displayName,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+@Composable
+private fun RotationChip(rotation: RotationLevel) {
+    val colors = MaterialTheme.colorScheme
+    val (container, content) = when (rotation) {
+        RotationLevel.ALTA -> colors.tertiaryContainer to colors.onTertiaryContainer
+        RotationLevel.MEDIA -> colors.secondaryContainer to colors.onSecondaryContainer
+        RotationLevel.BAJA -> colors.surfaceVariant to colors.onSurfaceVariant
+    }
+    Surface(color = container, contentColor = content, shape = RoundedCornerShape(50)) {
+        Text(
+            "N${rotation.level} · ${rotation.shortName}",
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
