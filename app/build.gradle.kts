@@ -87,4 +87,8 @@ dependencies {
     implementation(libs.androidx.exifinterface)
     // Sincronización en segundo plano
     implementation(libs.androidx.work.runtime)
+    // Inicio de sesión con Google mediante Credential Manager
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
 }
