@@ -12,7 +12,20 @@
           "package_name": "com.dsmg11.nexstock"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "931203875400-2bl9vhqqvkopu1r9qqg5k5d8grbkvfjs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dsmg11.nexstock",
+            "certificate_hash": "4809adf1915f263a64ef31d5e76b1de9635d4c78"
+          }
+        },
+        {
+          "client_id": "931203875400-2u4j7riufrqvg6ta5drsgus02jfnl3uj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAVsJrfunYMCBNyFbVc8uyiSx-m76fee2U"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "931203875400-2u4j7riufrqvg6ta5drsgus02jfnl3uj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
