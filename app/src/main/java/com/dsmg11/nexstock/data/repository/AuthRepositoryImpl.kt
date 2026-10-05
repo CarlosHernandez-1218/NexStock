@@ -13,6 +13,7 @@ import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
+import com.google.firebase.auth.GoogleAuthProvider
 
 class AuthRepositoryImpl @Inject constructor(
     private val auth: FirebaseAuth
@@ -37,6 +38,12 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override fun signOut() = auth.signOut()
+
+    override suspend fun signInWithGoogle(idToken: String): Result<User> = safeCall {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        val result = auth.signInWithCredential(credential).await()
+        checkNotNull(result.user).toUser()
+    }
 
     // Ejecuta la llamada a Firebase y convierte cualquier error en un mensaje claro en español
     private suspend fun <T> safeCall(block: suspend () -> T): Result<T> =

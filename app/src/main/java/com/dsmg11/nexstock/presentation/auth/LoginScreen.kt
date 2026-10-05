@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -34,6 +37,8 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(uiState.loginSuccess) {
         if (uiState.loginSuccess) onLoginSuccess()
@@ -88,6 +93,33 @@ fun LoginScreen(
             } else {
                 Text("Entrar")
             }
+        }
+        // Boton Google
+        Spacer(Modifier.height(12.dp))
+
+        Text(
+            text = "o",
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    obtenerTokenGoogle(context)
+                        .onSuccess { token ->
+                            viewModel.loginWithGoogle(token)
+                        }
+                        .onFailure {
+                            viewModel.onGoogleLoginError()
+                        }
+                }
+            },
+            enabled = !uiState.isLoading,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Continuar con Google")
         }
 
         OutlinedButton(onClick = onGoToRegister, modifier = Modifier.fillMaxWidth()) {
