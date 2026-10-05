@@ -9,6 +9,7 @@ import com.dsmg11.nexstock.domain.usecase.catalog.CatalogPermissions
 import com.dsmg11.nexstock.domain.usecase.catalog.LoadSampleProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.ObserveProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.ObserveUserProfileUseCase
+import com.dsmg11.nexstock.domain.usecase.catalog.SearchProductsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,10 +17,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.combine
 import javax.inject.Inject
 
 data class CatalogUiState(
     val products: List<Product> = emptyList(),
+    val totalCount: Int = 0,
+    val query: String = "",
     val profile: UserProfile? = null,
     val isLoading: Boolean = true,
     val isLoadingSamples: Boolean = false,
@@ -34,20 +38,24 @@ class CatalogViewModel @Inject constructor(
     getCurrentUser: GetCurrentUserUseCase,
     observeUserProfile: ObserveUserProfileUseCase,
     observeProducts: ObserveProductsUseCase,
-    private val loadSampleProducts: LoadSampleProductsUseCase
+    private val loadSampleProducts: LoadSampleProductsUseCase,
+    private val searchProducts: SearchProductsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CatalogUiState())
     val uiState: StateFlow<CatalogUiState> = _uiState.asStateFlow()
+    private val query = MutableStateFlow("")
 
     init {
         viewModelScope.launch {
-            observeProducts()
+            combine(observeProducts(), query) { all, q -> all to searchProducts(all, q) }
                 .catch {
                     _uiState.update { it.copy(isLoading = false, message = "No se pudo cargar el catálogo") }
                 }
-                .collect { products ->
-                    _uiState.update { it.copy(products = products, isLoading = false) }
+                .collect { (all, filtered) ->
+                    _uiState.update {
+                        it.copy(products = filtered, totalCount = all.size, isLoading = false)
+                    }
                 }
         }
         getCurrentUser()?.let { user ->
@@ -59,6 +67,10 @@ class CatalogViewModel @Inject constructor(
         }
     }
 
+    fun onQueryChange(value: String) {
+        query.value = value
+        _uiState.update { it.copy(query = value) }
+    }
     fun loadSamples() {
         if (_uiState.value.isLoadingSamples) return
         viewModelScope.launch {
