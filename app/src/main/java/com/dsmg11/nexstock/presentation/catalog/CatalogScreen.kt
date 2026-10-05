@@ -51,6 +51,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.SearchOff
+import com.dsmg11.nexstock.domain.model.stockLevel
 @Composable
 fun CatalogScreen(
     onBack: () -> Unit,
@@ -204,6 +205,15 @@ private fun ProductCard(product: Product, onClick: (() -> Unit)?) {
                     modifier = Modifier.weight(1f)
                 )
                 StatusChip(product.status)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Stock: ${product.stock} ${product.unit}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                StockBadge(product.stockLevel)
             }
         }
     }
