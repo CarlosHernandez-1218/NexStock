@@ -38,6 +38,18 @@ import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.StockGrouping
 import com.dsmg11.nexstock.domain.model.stockLevel
 import com.dsmg11.nexstock.presentation.catalog.StockBadge
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.dsmg11.nexstock.domain.model.RotationLevel
+import com.dsmg11.nexstock.domain.model.StockLevel
 
 @Composable
 fun StockScreen(
@@ -54,7 +66,7 @@ fun StockScreen(
             Text("Stock", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
             Text(
-                if (uiState.query.isBlank()) "${uiState.totalCount} productos"
+                if (!uiState.isFiltering) "${uiState.totalCount} productos"
                 else "${uiState.resultCount} de ${uiState.totalCount}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -83,7 +95,43 @@ fun StockScreen(
                         }
                     }
                 )
-
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 4.dp)
+                ) {
+                    MultiSelectChip(
+                        label = "Marca",
+                        options = uiState.availableBrands,
+                        selected = uiState.filters.brands,
+                        optionLabel = { it },
+                        onToggle = viewModel::onToggleBrand
+                    )
+                    MultiSelectChip(
+                        label = "Categoría",
+                        options = uiState.availableCategories,
+                        selected = uiState.filters.categories,
+                        optionLabel = { it },
+                        onToggle = viewModel::onToggleCategory
+                    )
+                    MultiSelectChip(
+                        label = "Rotación",
+                        options = RotationLevel.entries,
+                        selected = uiState.filters.rotations,
+                        optionLabel = { it.displayName },
+                        onToggle = viewModel::onToggleRotation
+                    )
+                    MultiSelectChip(
+                        label = "Nivel de stock",
+                        options = StockLevel.entries,
+                        selected = uiState.filters.levels,
+                        optionLabel = { it.displayName },
+                        onToggle = viewModel::onToggleLevel
+                    )
+                    if (!uiState.filters.isEmpty) {
+                        TextButton(onClick = viewModel::onClearFilters) { Text("Limpiar") }
+                    }
+                }
                 Text(
                     "Agrupar por",
                     style = MaterialTheme.typography.labelMedium,
@@ -103,7 +151,10 @@ fun StockScreen(
                 }
 
                 if (uiState.sections.isEmpty()) {
-                    CenteredMessage("Sin resultados para \"${uiState.query}\"")
+                    CenteredMessage(
+                        if (uiState.query.isBlank()) "Ningún producto cumple los filtros"
+                        else "Sin resultados para \"${uiState.query}\""
+                    )
                 } else {
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -196,5 +247,33 @@ private fun CenteredMessage(text: String) {
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center
         )
+    }
+}
+
+@Composable
+private fun <T> MultiSelectChip(
+    label: String,
+    options: List<T>,
+    selected: Set<T>,
+    optionLabel: (T) -> String,
+    onToggle: (T) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        FilterChip(
+            selected = selected.isNotEmpty(),
+            onClick = { expanded = true },
+            label = { Text(if (selected.isEmpty()) label else "$label (${selected.size})") },
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) }
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(optionLabel(option)) },
+                    leadingIcon = { Checkbox(checked = option in selected, onCheckedChange = null) },
+                    onClick = { onToggle(option) }
+                )
+            }
+        }
     }
 }

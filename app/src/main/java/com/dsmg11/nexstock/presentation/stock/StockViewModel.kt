@@ -3,9 +3,12 @@ package com.dsmg11.nexstock.presentation.stock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dsmg11.nexstock.domain.model.Product
+import com.dsmg11.nexstock.domain.model.RotationLevel
+import com.dsmg11.nexstock.domain.model.StockFilters
 import com.dsmg11.nexstock.domain.model.StockGrouping
 import com.dsmg11.nexstock.domain.model.StockLevel
 import com.dsmg11.nexstock.domain.model.stockLevel
+import com.dsmg11.nexstock.domain.usecase.catalog.FilterProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.ObserveProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.SearchProductsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,14 +35,28 @@ data class StockUiState(
     val totalCount: Int = 0,
     val query: String = "",
     val grouping: StockGrouping = StockGrouping.PRODUCTO,
+    val filters: StockFilters = StockFilters(),
+    val availableBrands: List<String> = emptyList(),
+    val availableCategories: List<String> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null
+) {
+    val isFiltering: Boolean get() = query.isNotBlank() || !filters.isEmpty
+}
+
+private data class StockResult(
+    val total: Int,
+    val count: Int,
+    val sections: List<StockSection>,
+    val brands: List<String>,
+    val categories: List<String>
 )
 
 @HiltViewModel
 class StockViewModel @Inject constructor(
     observeProducts: ObserveProductsUseCase,
-    private val searchProducts: SearchProductsUseCase
+    private val searchProducts: SearchProductsUseCase,
+    private val filterProducts: FilterProductsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StockUiState())
@@ -47,22 +64,31 @@ class StockViewModel @Inject constructor(
 
     private val query = MutableStateFlow("")
     private val grouping = MutableStateFlow(StockGrouping.PRODUCTO)
+    private val filters = MutableStateFlow(StockFilters())
 
     init {
         viewModelScope.launch {
-            combine(observeProducts(), query, grouping) { all, q, g ->
-                val filtered = searchProducts(all, q)
-                Triple(all.size, filtered.size, buildSections(filtered, g))
+            combine(observeProducts(), query, grouping, filters) { all, q, g, f ->
+                val result = filterProducts(searchProducts(all, q), f)
+                StockResult(
+                    total = all.size,
+                    count = result.size,
+                    sections = buildSections(result, g),
+                    brands = all.map { it.brand }.distinct().sorted(),
+                    categories = all.map { it.category }.distinct().sorted()
+                )
             }
                 .catch {
                     _uiState.update { it.copy(isLoading = false, error = "No se pudo cargar el stock") }
                 }
-                .collect { (total, count, sections) ->
+                .collect { r ->
                     _uiState.update {
                         it.copy(
-                            totalCount = total,
-                            resultCount = count,
-                            sections = sections,
+                            totalCount = r.total,
+                            resultCount = r.count,
+                            sections = r.sections,
+                            availableBrands = r.brands,
+                            availableCategories = r.categories,
                             isLoading = false
                         )
                     }
@@ -79,6 +105,20 @@ class StockViewModel @Inject constructor(
         grouping.value = value
         _uiState.update { it.copy(grouping = value) }
     }
+
+    fun onToggleBrand(brand: String) = updateFilters { copy(brands = brands.toggle(brand)) }
+    fun onToggleCategory(category: String) = updateFilters { copy(categories = categories.toggle(category)) }
+    fun onToggleRotation(rotation: RotationLevel) = updateFilters { copy(rotations = rotations.toggle(rotation)) }
+    fun onToggleLevel(level: StockLevel) = updateFilters { copy(levels = levels.toggle(level)) }
+    fun onClearFilters() = updateFilters { StockFilters() }
+
+    private fun updateFilters(change: StockFilters.() -> StockFilters) {
+        val updated = filters.value.change()
+        filters.value = updated
+        _uiState.update { it.copy(filters = updated) }
+    }
+
+    private fun <T> Set<T>.toggle(item: T): Set<T> = if (item in this) this - item else this + item
 
     private fun buildSections(products: List<Product>, grouping: StockGrouping): List<StockSection> =
         when (grouping) {
