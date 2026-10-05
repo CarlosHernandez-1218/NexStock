@@ -47,6 +47,10 @@ import com.dsmg11.nexstock.domain.model.ProductStatus
 import java.util.Locale
 import com.dsmg11.nexstock.domain.model.RotationLevel
 import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.SearchOff
 @Composable
 fun CatalogScreen(
     onBack: () -> Unit,
@@ -73,7 +77,8 @@ fun CatalogScreen(
                 Text("Catálogo", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.weight(1f))
                 Text(
-                    "${uiState.products.size} productos",
+                    if (uiState.query.isBlank()) "${uiState.totalCount} productos"
+                    else "${uiState.products.size} de ${uiState.totalCount}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -83,22 +88,43 @@ fun CatalogScreen(
                 uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-                uiState.products.isEmpty() -> EmptyCatalog(
+                uiState.totalCount == 0 -> EmptyCatalog(
                     canCreate = uiState.canCreate,
                     isLoadingSamples = uiState.isLoadingSamples,
                     onLoadSamples = viewModel::loadSamples
                 )
-                else -> LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(uiState.products, key = { it.code }) { product ->
-                        val canEdit = uiState.canEdit(product)
-                        ProductCard(
-                            product = product,
-                            onClick = if (canEdit) ({ onEditProduct(product.code) }) else null
-                        )
+                else -> {
+                    OutlinedTextField(
+                        value = uiState.query,
+                        onValueChange = viewModel::onQueryChange,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        singleLine = true,
+                        placeholder = { Text("Buscar por código, nombre, marca…") },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (uiState.query.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.onQueryChange("") }) {
+                                    Icon(Icons.Filled.Close, contentDescription = "Borrar búsqueda")
+                                }
+                            }
+                        }
+                    )
+                    if (uiState.products.isEmpty()) {
+                        NoResults(uiState.query)
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            items(uiState.products, key = { it.code }) { product ->
+                                val canEdit = uiState.canEdit(product)
+                                ProductCard(
+                                    product = product,
+                                    onClick = if (canEdit) ({ onEditProduct(product.code) }) else null
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -241,6 +267,28 @@ private fun EmptyCatalog(canCreate: Boolean, isLoadingSamples: Boolean, onLoadSa
                 Text(if (isLoadingSamples) "Cargando..." else "Cargar productos de ejemplo")
             }
         }
+    }
+}
+
+@Composable
+private fun NoResults(query: String) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.Outlined.SearchOff,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Sin resultados para \"$query\"",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
