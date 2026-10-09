@@ -72,6 +72,15 @@ fun StockScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        uiState.myLines?.let { lines ->
+            Text(
+                if (lines.isEmpty()) "No tienes líneas asignadas. Pide al Administrador que te asigne una."
+                else "Tus líneas: ${lines.joinToString { it.displayName }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
+            )
+        }
 
         when {
             uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

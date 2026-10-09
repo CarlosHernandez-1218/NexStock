@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dsmg11.nexstock.domain.model.ProductLine
 import com.dsmg11.nexstock.domain.model.UserProfile
 import com.dsmg11.nexstock.domain.model.UserRole
+import com.dsmg11.nexstock.domain.model.sameAs
 import com.dsmg11.nexstock.domain.usecase.GetCurrentUserUseCase
 import com.dsmg11.nexstock.domain.usecase.master.ObserveProductLinesUseCase
 import com.dsmg11.nexstock.domain.usecase.users.ObserveUsersUseCase
@@ -63,11 +64,14 @@ class UsersViewModel @Inject constructor(
     }
 
     fun startEditing(user: UserProfile) {
-        _uiState.update {
-            it.copy(
+        _uiState.update { state ->
+            state.copy(
                 editing = user,
                 selectedRole = user.role,
-                selectedLines = user.assignedLines.toSet(),
+                // Se emparejan por código con las líneas disponibles para marcar bien los checkboxes
+                selectedLines = user.assignedLines.map { assigned ->
+                    state.availableLines.firstOrNull { it.sameAs(assigned) } ?: assigned
+                }.toSet(),
                 errorMessage = null,
                 successMessage = null
             )
