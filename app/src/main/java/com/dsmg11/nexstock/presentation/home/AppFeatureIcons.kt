@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AssignmentReturn
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -24,4 +25,5 @@ val AppFeature.icon: ImageVector
         AppFeature.ASISTENTE -> Icons.Filled.SmartToy
         AppFeature.USUARIOS -> Icons.Filled.ManageAccounts
         AppFeature.MAESTROS -> Icons.Filled.Tune
+        AppFeature.PROVEEDORES -> Icons.Filled.LocalShipping
     }
