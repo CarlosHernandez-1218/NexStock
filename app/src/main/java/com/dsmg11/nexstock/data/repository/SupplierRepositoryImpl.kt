@@ -9,7 +9,9 @@ import kotlinx.coroutines.tasks.await
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
-
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 class SupplierRepositoryImpl @Inject constructor(
     private val rucApiService: RucApiService,
     private val firestore: FirebaseFirestore
@@ -95,5 +97,19 @@ class SupplierRepositoryImpl @Inject constructor(
                 )
             )
         }
+
+    }
+    // Lista en tiempo real de los proveedores registrados
+    override fun observarProveedores(): Flow<List<Supplier>> = callbackFlow {
+        val registration = proveedoresCollection
+            .orderBy("razonSocial")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                trySend(snapshot?.toObjects(Supplier::class.java).orEmpty())
+            }
+        awaitClose { registration.remove() }
     }
 }

@@ -22,6 +22,9 @@ import com.dsmg11.nexstock.presentation.profile.ProfileScreen
 import com.dsmg11.nexstock.presentation.users.UsersScreen
 import com.dsmg11.nexstock.presentation.stock.StockScreen
 import com.dsmg11.nexstock.presentation.master.MasterDataScreen
+import com.dsmg11.nexstock.presentation.suppliers.SupplierListScreen
+import com.dsmg11.nexstock.presentation.suppliers.SupplierScreen
+
 @Composable
 fun NexStockNavHost(
     modifier: Modifier = Modifier,
@@ -67,6 +70,7 @@ fun NexStockNavHost(
                         AppFeature.CATALOGO -> navController.navigate(Screen.Catalog.route)
                         AppFeature.STOCK -> navController.navigate(Screen.Stock.route)
                         AppFeature.MAESTROS -> navController.navigate(Screen.MasterData.route)
+                        AppFeature.PROVEEDORES -> navController.navigate(Screen.Suppliers.route)
                         else -> Toast.makeText(
                             context,
                             "${feature.title}: disponible en el Sprint ${feature.sprint}",
@@ -99,6 +103,15 @@ fun NexStockNavHost(
         }
         composable(Screen.MasterData.route) {
             MasterDataScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Screen.Suppliers.route) {
+            SupplierListScreen(
+                onBack = { navController.popBackStack() },
+                onAddSupplier = { navController.navigate(Screen.SupplierForm.route) }
+            )
+        }
+        composable(Screen.SupplierForm.route) {
+            SupplierScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Screen.ProductForm.route,

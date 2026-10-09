@@ -10,4 +10,5 @@ interface SupplierRepository {
     suspend fun existeProveedor(ruc: String): Result<Boolean>
 
     suspend fun registrarProveedor(proveedor: Supplier): Result<Unit>
+    fun observarProveedores(): kotlinx.coroutines.flow.Flow<List<Supplier>>
 }
