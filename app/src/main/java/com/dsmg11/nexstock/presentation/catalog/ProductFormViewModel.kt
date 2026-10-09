@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.dsmg11.nexstock.domain.model.MasterItem
 import com.dsmg11.nexstock.domain.model.MasterType
+import com.dsmg11.nexstock.domain.model.sameAs
 import com.dsmg11.nexstock.domain.usecase.master.ObserveMasterItemsUseCase
 import com.dsmg11.nexstock.domain.usecase.master.ObserveProductLinesUseCase
 import kotlinx.coroutines.flow.catch
@@ -98,7 +99,7 @@ class ProductFormViewModel @Inject constructor(
                         code = product.code,
                         name = product.name,
                         brand = product.brand,
-                        line = lines.firstOrNull { it == product.line } ?: product.line,
+                        line = lines.firstOrNull { it.sameAs(product.line) } ?: product.line,
                         category = product.category,
                         unit = product.unit,
                         price = product.price.toString(),
@@ -116,7 +117,7 @@ class ProductFormViewModel @Inject constructor(
     fun onNameChange(value: String) = _uiState.update { it.copy(name = value) }
     fun onBrandChange(value: String) = _uiState.update { it.copy(brand = value) }
     fun onLineChange(value: ProductLine) = _uiState.update {
-        if (it.line == value) it else it.copy(line = value, category = "")
+        if (value.sameAs(it.line)) it else it.copy(line = value, category = "")
     }
     fun onCategoryChange(value: String) = _uiState.update { it.copy(category = value) }
     fun onUnitChange(value: String) = _uiState.update { it.copy(unit = value) }

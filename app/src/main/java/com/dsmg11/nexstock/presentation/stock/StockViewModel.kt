@@ -3,20 +3,26 @@ package com.dsmg11.nexstock.presentation.stock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dsmg11.nexstock.domain.model.Product
+import com.dsmg11.nexstock.domain.model.ProductLine
 import com.dsmg11.nexstock.domain.model.RotationLevel
 import com.dsmg11.nexstock.domain.model.StockFilters
 import com.dsmg11.nexstock.domain.model.StockGrouping
 import com.dsmg11.nexstock.domain.model.StockLevel
+import com.dsmg11.nexstock.domain.model.UserRole
 import com.dsmg11.nexstock.domain.model.stockLevel
+import com.dsmg11.nexstock.domain.usecase.GetCurrentUserUseCase
+import com.dsmg11.nexstock.domain.usecase.catalog.CatalogPermissions
 import com.dsmg11.nexstock.domain.usecase.catalog.FilterProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.ObserveProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.SearchProductsUseCase
+import com.dsmg11.nexstock.domain.usecase.profile.ObserveUserProfileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -38,6 +44,7 @@ data class StockUiState(
     val filters: StockFilters = StockFilters(),
     val availableBrands: List<String> = emptyList(),
     val availableCategories: List<String> = emptyList(),
+    val myLines: List<ProductLine>? = null,   // null = ve todas las líneas (MOV-96)
     val isLoading: Boolean = true,
     val error: String? = null
 ) {
@@ -49,11 +56,14 @@ private data class StockResult(
     val count: Int,
     val sections: List<StockSection>,
     val brands: List<String>,
-    val categories: List<String>
+    val categories: List<String>,
+    val myLines: List<ProductLine>?
 )
 
 @HiltViewModel
 class StockViewModel @Inject constructor(
+    getCurrentUser: GetCurrentUserUseCase,
+    observeUserProfile: ObserveUserProfileUseCase,
     observeProducts: ObserveProductsUseCase,
     private val searchProducts: SearchProductsUseCase,
     private val filterProducts: FilterProductsUseCase
@@ -66,16 +76,22 @@ class StockViewModel @Inject constructor(
     private val grouping = MutableStateFlow(StockGrouping.PRODUCTO)
     private val filters = MutableStateFlow(StockFilters())
 
+    // Perfil del usuario: si el Administrador le cambia las líneas, la pantalla se actualiza sola
+    private val profile = (getCurrentUser()?.let { observeUserProfile(it.uid) } ?: flowOf(null))
+        .catch { emit(null) }
+
     init {
         viewModelScope.launch {
-            combine(observeProducts(), query, grouping, filters) { all, q, g, f ->
-                val result = filterProducts(searchProducts(all, q), f)
+            combine(observeProducts(), profile, query, grouping, filters) { all, p, q, g, f ->
+                val visible = CatalogPermissions.visibleProducts(p, all)
+                val result = filterProducts(searchProducts(visible, q), f)
                 StockResult(
-                    total = all.size,
+                    total = visible.size,
                     count = result.size,
                     sections = buildSections(result, g),
-                    brands = all.map { it.brand }.distinct().sorted(),
-                    categories = all.map { it.category }.distinct().sorted()
+                    brands = visible.map { it.brand }.distinct().sorted(),
+                    categories = visible.map { it.category }.distinct().sorted(),
+                    myLines = if (p?.role == UserRole.JEFE_LINEA) p.assignedLines else null
                 )
             }
                 .catch {
@@ -89,6 +105,7 @@ class StockViewModel @Inject constructor(
                             sections = r.sections,
                             availableBrands = r.brands,
                             availableCategories = r.categories,
+                            myLines = r.myLines,
                             isLoading = false
                         )
                     }
