@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.dsmg11.nexstock.domain.model.AppFeature
@@ -22,4 +23,5 @@ val AppFeature.icon: ImageVector
         AppFeature.DASHBOARD -> Icons.Filled.Dashboard
         AppFeature.ASISTENTE -> Icons.Filled.SmartToy
         AppFeature.USUARIOS -> Icons.Filled.ManageAccounts
+        AppFeature.MAESTROS -> Icons.Filled.Tune
     }
