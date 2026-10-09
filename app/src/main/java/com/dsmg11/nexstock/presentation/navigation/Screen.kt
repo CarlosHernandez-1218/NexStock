@@ -9,6 +9,7 @@ sealed class Screen(val route: String) {
     data object Users : Screen("users")
     data object Catalog : Screen("catalog")
     data object Stock : Screen("stock")
+    data object MasterData : Screen("master_data")
     data object ProductForm : Screen("product_form?code={code}") {
         fun createRoute(code: String? = null) =
             if (code == null) "product_form" else "product_form?code=$code"

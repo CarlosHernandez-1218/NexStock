@@ -6,6 +6,7 @@ import com.dsmg11.nexstock.domain.model.ProductLine
 import com.dsmg11.nexstock.domain.model.UserProfile
 import com.dsmg11.nexstock.domain.model.UserRole
 import com.dsmg11.nexstock.domain.usecase.GetCurrentUserUseCase
+import com.dsmg11.nexstock.domain.usecase.master.ObserveProductLinesUseCase
 import com.dsmg11.nexstock.domain.usecase.users.ObserveUsersUseCase
 import com.dsmg11.nexstock.domain.usecase.users.UpdateUserRoleUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,7 @@ data class UsersUiState(
     val editing: UserProfile? = null,
     val selectedRole: UserRole = UserRole.ALMACENERO,
     val selectedLines: Set<ProductLine> = emptySet(),
+    val availableLines: List<ProductLine> = emptyList(),
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null
@@ -32,6 +34,7 @@ data class UsersUiState(
 class UsersViewModel @Inject constructor(
     getCurrentUser: GetCurrentUserUseCase,
     observeUsers: ObserveUsersUseCase,
+    observeProductLines: ObserveProductLinesUseCase,
     private val updateUserRole: UpdateUserRoleUseCase
 ) : ViewModel() {
 
@@ -51,6 +54,11 @@ class UsersViewModel @Inject constructor(
                 .collect { users ->
                     _uiState.update { it.copy(users = users, isLoading = false) }
                 }
+        }
+        viewModelScope.launch {
+            observeProductLines(onlyActive = true)
+                .catch { }
+                .collect { lines -> _uiState.update { it.copy(availableLines = lines) } }
         }
     }
 

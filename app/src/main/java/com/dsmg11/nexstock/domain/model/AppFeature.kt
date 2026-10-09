@@ -18,5 +18,7 @@ enum class AppFeature(
         setOf(UserRole.ADMINISTRADOR)),
     ASISTENTE("Asistente IA", "Consultas por texto y voz", 3, UserRole.entries.toSet()),
     USUARIOS("Usuarios", "Roles y líneas asignadas", 1,
+        setOf(UserRole.ADMINISTRADOR)),
+    MAESTROS("Datos maestros", "Líneas, categorías y unidades", 1,
         setOf(UserRole.ADMINISTRADOR))
 }

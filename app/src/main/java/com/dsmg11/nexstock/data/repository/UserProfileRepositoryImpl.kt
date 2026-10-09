@@ -9,9 +9,12 @@ import androidx.exifinterface.media.ExifInterface
 import com.dsmg11.nexstock.data.local.UserProfileDao
 import com.dsmg11.nexstock.data.local.toDomain
 import com.dsmg11.nexstock.data.local.toEntity
+import com.dsmg11.nexstock.domain.model.MasterType
 import com.dsmg11.nexstock.domain.model.ProductLine
 import com.dsmg11.nexstock.domain.model.UserProfile
 import com.dsmg11.nexstock.domain.model.UserRole
+import com.dsmg11.nexstock.domain.model.withName
+import com.dsmg11.nexstock.domain.repository.MasterDataRepository
 import com.dsmg11.nexstock.domain.repository.UserProfileRepository
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
@@ -25,7 +28,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -36,21 +41,32 @@ class UserProfileRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val firestore: FirebaseFirestore,
     private val storage: FirebaseStorage,
-    private val profileDao: UserProfileDao
+    private val profileDao: UserProfileDao,
+    private val masterData: MasterDataRepository
 ) : UserProfileRepository {
 
     private val users get() = firestore.collection(USERS_COLLECTION)
 
+    // Nombres de las líneas (código → nombre), leídos de la colección product_lines
+    private val lineNames: Flow<Map<String, String>> =
+        masterData.observe(MasterType.LINEAS)
+            .map { items -> items.associate { it.id to it.name } }
+            .onStart { emit(emptyMap()) }
+            .catch { emit(emptyMap()) }
+
     // Offline-first: la app lee de Room; Firestore solo mantiene Room actualizado
-    override fun observeProfile(uid: String): Flow<UserProfile?> = channelFlow {
-        launch {
-            remoteProfile(uid)
-                .catch { /* Sin conexión: se sigue mostrando la copia local */ }
-                .collect { profile -> profile?.let { profileDao.upsert(it.toEntity()) } }
+    override fun observeProfile(uid: String): Flow<UserProfile?> {
+        val local = channelFlow {
+            launch {
+                remoteProfile(uid)
+                    .catch { /* Sin conexión: se sigue mostrando la copia local */ }
+                    .collect { profile -> profile?.let { profileDao.upsert(it.toEntity()) } }
+            }
+            profileDao.observe(uid)
+                .map { it?.toDomain() }
+                .collect { send(it) }
         }
-        profileDao.observe(uid)
-            .map { it?.toDomain() }
-            .collect { send(it) }
+        return combine(local, lineNames) { profile, names -> profile?.withLineNames(names) }
     }
 
     private fun remoteProfile(uid: String): Flow<UserProfile?> = callbackFlow {
@@ -91,15 +107,18 @@ class UserProfileRepositoryImpl @Inject constructor(
         }
 
     // Solo el Administrador puede leer la lista completa (lo garantizan las reglas de Firestore)
-    override fun observeAllProfiles(): Flow<List<UserProfile>> = callbackFlow {
-        val registration = users.orderBy("email").addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                close(error)
-                return@addSnapshotListener
+    override fun observeAllProfiles(): Flow<List<UserProfile>> {
+        val remote = callbackFlow {
+            val registration = users.orderBy("email").addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                trySend(snapshot?.documents?.mapNotNull { it.toUserProfile() }.orEmpty())
             }
-            trySend(snapshot?.documents?.mapNotNull { it.toUserProfile() }.orEmpty())
+            awaitClose { registration.remove() }
         }
-        awaitClose { registration.remove() }
+        return combine(remote, lineNames) { list, names -> list.map { it.withLineNames(names) } }
     }
 
     override suspend fun updateRoleAndLines(
@@ -182,6 +201,10 @@ class UserProfileRepositoryImpl @Inject constructor(
     }
 }
 
+// Completa el nombre visible de cada línea asignada
+private fun UserProfile.withLineNames(names: Map<String, String>): UserProfile =
+    copy(assignedLines = assignedLines.map { it.withName(names) })
+
 private fun DocumentSnapshot.toUserProfile(): UserProfile? {
     if (!exists()) return null
     return UserProfile(
@@ -191,7 +214,7 @@ private fun DocumentSnapshot.toUserProfile(): UserProfile? {
         phone = getString("phone").orEmpty(),
         role = UserRole.fromName(getString("role")),
         assignedLines = (get("assignedLines") as? List<*>)
-            ?.mapNotNull { (it as? String)?.let(ProductLine::fromName) }
+            ?.mapNotNull { (it as? String)?.let { code -> ProductLine(code) } }
             .orEmpty(),
         photoUrl = getString("photoUrl")
     )

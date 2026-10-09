@@ -16,10 +16,13 @@ object CatalogPermissions {
         else -> false
     }
 
-    // Líneas que el usuario puede elegir en el formulario
-    fun allowedLines(profile: UserProfile?): List<ProductLine> = when (profile?.role) {
-        UserRole.ADMINISTRADOR -> ProductLine.entries
-        UserRole.JEFE_LINEA -> profile?.assignedLines.orEmpty()
-        else -> emptyList()
-    }
+    // Líneas que el usuario puede elegir en el formulario (allLines viene de product_lines)
+    fun allowedLines(profile: UserProfile?, allLines: List<ProductLine>): List<ProductLine> =
+        when (profile?.role) {
+            UserRole.ADMINISTRADOR -> allLines
+            UserRole.JEFE_LINEA -> profile?.assignedLines.orEmpty().map { assigned ->
+                allLines.firstOrNull { it == assigned } ?: assigned
+            }
+            else -> emptyList()
+        }
 }
