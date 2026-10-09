@@ -80,6 +80,7 @@ fun UsersScreen(
             user = user,
             selectedRole = uiState.selectedRole,
             selectedLines = uiState.selectedLines,
+            availableLines = uiState.availableLines,
             isSaving = uiState.isSaving,
             onRoleSelected = viewModel::onRoleSelected,
             onLineToggled = viewModel::onLineToggled,
@@ -121,6 +122,7 @@ private fun EditUserDialog(
     user: UserProfile,
     selectedRole: UserRole,
     selectedLines: Set<ProductLine>,
+    availableLines: List<ProductLine>,
     isSaving: Boolean,
     onRoleSelected: (UserRole) -> Unit,
     onLineToggled: (ProductLine) -> Unit,
@@ -155,7 +157,7 @@ private fun EditUserDialog(
                 if (selectedRole == UserRole.JEFE_LINEA) {
                     Spacer(Modifier.height(12.dp))
                     Text("Líneas a cargo", style = MaterialTheme.typography.titleSmall)
-                    ProductLine.entries.forEach { line ->
+                    availableLines.forEach { line ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

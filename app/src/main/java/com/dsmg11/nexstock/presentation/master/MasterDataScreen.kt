@@ -40,7 +40,7 @@ import com.dsmg11.nexstock.domain.model.MasterType
 
 
 // Pestañas visibles. En el paso 4 se agregan las líneas.
-private val TABS = listOf(MasterType.UNIDADES, MasterType.CATEGORIAS)
+private val TABS = listOf(MasterType.LINEAS, MasterType.CATEGORIAS, MasterType.UNIDADES)
 
 @Composable
 fun MasterDataScreen(
@@ -87,13 +87,20 @@ fun MasterDataScreen(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (uiState.lines.isEmpty()) {
+                    Text(
+                        "Primero registra las líneas en la pestaña Líneas.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp)
                 ) {
                     uiState.lines.forEach { line ->
                         FilterChip(
-                            selected = uiState.selectedLineId == line.id,
+                            selected = uiState.currentLineId == line.id,
                             onClick = { viewModel.onLineSelected(line.id) },
                             label = { Text(line.name) }
                         )

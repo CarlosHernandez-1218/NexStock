@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dsmg11.nexstock.domain.model.MasterItem
 import com.dsmg11.nexstock.domain.model.MasterType
-import com.dsmg11.nexstock.domain.model.ProductLine
 import com.dsmg11.nexstock.domain.usecase.master.AddMasterItemUseCase
 import com.dsmg11.nexstock.domain.usecase.master.ObserveMasterItemsUseCase
 import com.dsmg11.nexstock.domain.usecase.master.SetMasterItemActiveUseCase
@@ -18,18 +17,22 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class MasterDataUiState(
-    val selectedType: MasterType = MasterType.UNIDADES,
+    val selectedType: MasterType = MasterType.LINEAS,
     val items: Map<MasterType, List<MasterItem>> = emptyMap(),
-    // Paso 4: las líneas vendrán de la colección product_lines
-    val lines: List<MasterItem> = ProductLine.entries.map { MasterItem(it.name, it.displayName) },
-    val selectedLineId: String? = ProductLine.entries.first().name,
+    val selectedLineId: String? = null,
     val newName: String = "",
     val message: String? = null
 ) {
+    // Líneas activas (de product_lines) para elegir a qué línea pertenece cada categoría
+    val lines: List<MasterItem> get() = items[MasterType.LINEAS].orEmpty().filter { it.active }
+
+    // Línea elegida; si aún no se eligió ninguna, la primera
+    val currentLineId: String? get() = selectedLineId ?: lines.firstOrNull()?.id
+
     // Las categorías se muestran solo las de la línea elegida
     val visibleItems: List<MasterItem>
         get() = items[selectedType].orEmpty().let { list ->
-            if (selectedType == MasterType.CATEGORIAS) list.filter { it.parentId == selectedLineId }
+            if (selectedType == MasterType.CATEGORIAS) list.filter { it.parentId == currentLineId }
             else list
         }
 }
@@ -65,7 +68,7 @@ class MasterDataViewModel @Inject constructor(
 
     fun add() {
         val state = _uiState.value
-        val parentId = if (state.selectedType == MasterType.CATEGORIAS) state.selectedLineId else null
+        val parentId = if (state.selectedType == MasterType.CATEGORIAS) state.currentLineId else null
         viewModelScope.launch {
             addMasterItem(state.selectedType, state.newName, state.items[state.selectedType].orEmpty(), parentId)
                 .onSuccess { _uiState.update { it.copy(newName = "", message = "Registrado correctamente") } }

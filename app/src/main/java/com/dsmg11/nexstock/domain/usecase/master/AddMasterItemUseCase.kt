@@ -35,6 +35,14 @@ class AddMasterItemUseCase @Inject constructor(
     private fun normalize(text: String): String =
         Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
 
+    // "Materiales de construcción" → MATERIALES_CONSTRUCCION (se omiten de, del, la, y…)
     private fun toCode(text: String): String =
-        normalize(text).uppercase().replace(Regex("[^A-Z0-9]+"), "_").trim('_')
+        normalize(text).uppercase()
+            .split(Regex("[^A-Z0-9]+"))
+            .filter { it.isNotBlank() && it !in CONNECTORS }
+            .joinToString("_")
+
+    private companion object {
+        val CONNECTORS = setOf("DE", "DEL", "LA", "LAS", "EL", "LOS", "Y", "E")
+    }
 }

@@ -1,4 +1,4 @@
-package com.dsmg11.nexstock.data.local
+    package com.dsmg11.nexstock.data.local
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -23,7 +23,7 @@ fun UserProfileEntity.toDomain() = UserProfile(
     fullName = fullName,
     phone = phone,
     role = UserRole.fromName(role),
-    assignedLines = assignedLines.split(",").mapNotNull { ProductLine.fromName(it) },
+    assignedLines = assignedLines.split(",").filter { it.isNotBlank() }.map { ProductLine(it) },
     photoUrl = photoUrl
 )
 

@@ -24,6 +24,7 @@ import javax.inject.Inject
 import com.dsmg11.nexstock.domain.model.MasterItem
 import com.dsmg11.nexstock.domain.model.MasterType
 import com.dsmg11.nexstock.domain.usecase.master.ObserveMasterItemsUseCase
+import com.dsmg11.nexstock.domain.usecase.master.ObserveProductLinesUseCase
 import kotlinx.coroutines.flow.catch
 
 data class ProductFormUiState(
@@ -58,6 +59,7 @@ class ProductFormViewModel @Inject constructor(
     observeUserProfile: ObserveUserProfileUseCase,
     observeProduct: ObserveProductUseCase,
     observeMasterItems: ObserveMasterItemsUseCase,
+    observeProductLines: ObserveProductLinesUseCase,
     private val saveProduct: SaveProductUseCase
 ) : ViewModel() {
 
@@ -83,7 +85,9 @@ class ProductFormViewModel @Inject constructor(
             val profile = getCurrentUser()?.let { user ->
                 observeUserProfile(user.uid).filterNotNull().first()
             }
-            val lines = CatalogPermissions.allowedLines(profile)
+            // Líneas activas desde product_lines
+            val activeLines = observeProductLines(onlyActive = true).first()
+            val lines = CatalogPermissions.allowedLines(profile, activeLines)
             _uiState.update { it.copy(allowedLines = lines, line = lines.firstOrNull()) }
 
             editingCode?.let { code ->
@@ -94,7 +98,7 @@ class ProductFormViewModel @Inject constructor(
                         code = product.code,
                         name = product.name,
                         brand = product.brand,
-                        line = product.line,
+                        line = lines.firstOrNull { it == product.line } ?: product.line,
                         category = product.category,
                         unit = product.unit,
                         price = product.price.toString(),

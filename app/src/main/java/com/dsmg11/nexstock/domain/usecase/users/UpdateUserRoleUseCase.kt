@@ -27,7 +27,7 @@ class UpdateUserRoleUseCase @Inject constructor(
             )
         }
         // Solo el Jefe de Línea tiene líneas asignadas
-        val finalLines = if (role == UserRole.JEFE_LINEA) lines.sortedBy { it.ordinal } else emptyList()
+        val finalLines = if (role == UserRole.JEFE_LINEA) lines.sortedBy { it.displayName } else emptyList()
 
         return repository.updateRoleAndLines(targetUid, role, finalLines)
             .recoverCatching { throw Exception("No se pudo guardar. Revisa tu conexión a internet.") }
