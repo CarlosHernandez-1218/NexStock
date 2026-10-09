@@ -6,7 +6,6 @@ import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.UserProfile
 import com.dsmg11.nexstock.domain.usecase.GetCurrentUserUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.CatalogPermissions
-import com.dsmg11.nexstock.domain.usecase.catalog.LoadSampleProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.ObserveProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.ObserveUserProfileUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.SearchProductsUseCase
@@ -26,7 +25,6 @@ data class CatalogUiState(
     val query: String = "",
     val profile: UserProfile? = null,
     val isLoading: Boolean = true,
-    val isLoadingSamples: Boolean = false,
     val message: String? = null
 ) {
     val canCreate: Boolean get() = CatalogPermissions.canCreate(profile)
@@ -38,7 +36,6 @@ class CatalogViewModel @Inject constructor(
     getCurrentUser: GetCurrentUserUseCase,
     observeUserProfile: ObserveUserProfileUseCase,
     observeProducts: ObserveProductsUseCase,
-    private val loadSampleProducts: LoadSampleProductsUseCase,
     private val searchProducts: SearchProductsUseCase
 ) : ViewModel() {
 
@@ -70,23 +67,6 @@ class CatalogViewModel @Inject constructor(
     fun onQueryChange(value: String) {
         query.value = value
         _uiState.update { it.copy(query = value) }
-    }
-    fun loadSamples() {
-        if (_uiState.value.isLoadingSamples) return
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingSamples = true) }
-            loadSampleProducts()
-                .onSuccess { count ->
-                    _uiState.update {
-                        it.copy(isLoadingSamples = false, message = "Se cargaron $count productos de ejemplo")
-                    }
-                }
-                .onFailure { e ->
-                    _uiState.update {
-                        it.copy(isLoadingSamples = false, message = e.message ?: "No se pudieron cargar")
-                    }
-                }
-        }
     }
 
     fun messageShown() {

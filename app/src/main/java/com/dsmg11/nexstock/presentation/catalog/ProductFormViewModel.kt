@@ -21,6 +21,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.dsmg11.nexstock.domain.model.MasterItem
+import com.dsmg11.nexstock.domain.model.MasterType
+import com.dsmg11.nexstock.domain.usecase.master.ObserveMasterItemsUseCase
+import kotlinx.coroutines.flow.catch
 
 data class ProductFormUiState(
     val isNew: Boolean = true,
@@ -36,10 +40,16 @@ data class ProductFormUiState(
     val rotation: RotationLevel = RotationLevel.MEDIA,
     val barcode: String = "",
     val allowedLines: List<ProductLine> = emptyList(),
+    val units: List<String> = emptyList(),              // De la colección units
+    val allCategories: List<MasterItem> = emptyList(),  // De la colección categories
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
     val saved: Boolean = false
-)
+) {
+    // Solo las categorías de la línea elegida
+    val categoriesForLine: List<String>
+        get() = allCategories.filter { it.parentId == line?.name }.map { it.name }
+}
 
 @HiltViewModel
 class ProductFormViewModel @Inject constructor(
@@ -47,6 +57,7 @@ class ProductFormViewModel @Inject constructor(
     getCurrentUser: GetCurrentUserUseCase,
     observeUserProfile: ObserveUserProfileUseCase,
     observeProduct: ObserveProductUseCase,
+    observeMasterItems: ObserveMasterItemsUseCase,
     private val saveProduct: SaveProductUseCase
 ) : ViewModel() {
 
@@ -57,6 +68,17 @@ class ProductFormViewModel @Inject constructor(
     val uiState: StateFlow<ProductFormUiState> = _uiState.asStateFlow()
 
     init {
+        // Unidades y categorías activas desde la base de datos (se actualizan en tiempo real)
+        viewModelScope.launch {
+            observeMasterItems(MasterType.UNIDADES, onlyActive = true)
+                .catch { }
+                .collect { list -> _uiState.update { it.copy(units = list.map { u -> u.name }) } }
+        }
+        viewModelScope.launch {
+            observeMasterItems(MasterType.CATEGORIAS, onlyActive = true)
+                .catch { }
+                .collect { list -> _uiState.update { it.copy(allCategories = list) } }
+        }
         viewModelScope.launch {
             val profile = getCurrentUser()?.let { user ->
                 observeUserProfile(user.uid).filterNotNull().first()
@@ -89,7 +111,9 @@ class ProductFormViewModel @Inject constructor(
     fun onCodeChange(value: String) = _uiState.update { it.copy(code = value.uppercase()) }
     fun onNameChange(value: String) = _uiState.update { it.copy(name = value) }
     fun onBrandChange(value: String) = _uiState.update { it.copy(brand = value) }
-    fun onLineChange(value: ProductLine) = _uiState.update { it.copy(line = value) }
+    fun onLineChange(value: ProductLine) = _uiState.update {
+        if (it.line == value) it else it.copy(line = value, category = "")
+    }
     fun onCategoryChange(value: String) = _uiState.update { it.copy(category = value) }
     fun onUnitChange(value: String) = _uiState.update { it.copy(unit = value) }
     fun onPriceChange(value: String) =

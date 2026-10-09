@@ -89,11 +89,7 @@ fun CatalogScreen(
                 uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-                uiState.totalCount == 0 -> EmptyCatalog(
-                    canCreate = uiState.canCreate,
-                    isLoadingSamples = uiState.isLoadingSamples,
-                    onLoadSamples = viewModel::loadSamples
-                )
+                uiState.totalCount == 0 ->  EmptyCatalog(canCreate = uiState.canCreate)
                 else -> {
                     OutlinedTextField(
                         value = uiState.query,
@@ -253,7 +249,7 @@ private fun RotationChip(rotation: RotationLevel) {
 }
 
 @Composable
-private fun EmptyCatalog(canCreate: Boolean, isLoadingSamples: Boolean, onLoadSamples: () -> Unit) {
+private fun EmptyCatalog(canCreate: Boolean) {
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -272,10 +268,13 @@ private fun EmptyCatalog(canCreate: Boolean, isLoadingSamples: Boolean, onLoadSa
             textAlign = TextAlign.Center
         )
         if (canCreate) {
-            Spacer(Modifier.height(16.dp))
-            OutlinedButton(onClick = onLoadSamples, enabled = !isLoadingSamples) {
-                Text(if (isLoadingSamples) "Cargando..." else "Cargar productos de ejemplo")
-            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Toca + para registrar el primer producto",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

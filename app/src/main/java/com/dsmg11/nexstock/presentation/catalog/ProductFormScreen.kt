@@ -1,5 +1,6 @@
 package com.dsmg11.nexstock.presentation.catalog
 
+import android.icu.text.ListFormatter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,7 +40,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsmg11.nexstock.domain.model.ProductStatus
 import com.dsmg11.nexstock.domain.model.RotationLevel
 
-private val UNITS = listOf("unidad", "m²", "metro", "caja", "bolsa", "galón", "litro", "kg", "rollo", "juego")
 
 @Composable
 fun ProductFormScreen(
@@ -97,18 +97,24 @@ fun ProductFormScreen(
                 optionLabel = { it.displayName },
                 onSelect = viewModel::onLineChange
             )
-            OutlinedTextField(
+            SelectField(
+                label = "Categoría",
                 value = uiState.category,
-                onValueChange = viewModel::onCategoryChange,
-                label = { Text("Categoría") },
-                supportingText = { Text("Ej. Porcelanato, Inodoros, Látex") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                options = uiState.categoriesForLine,
+                optionLabel = { it },
+                onSelect = viewModel::onCategoryChange
             )
+            if (uiState.line != null && uiState.categoriesForLine.isEmpty()) {
+                Text(
+                    "No hay categorías para esta línea. El Administrador puede registrarlas en Datos maestros.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             SelectField(
                 label = "Unidad de medida",
                 value = uiState.unit,
-                options = UNITS,
+                options = uiState.units,
                 optionLabel = { it },
                 onSelect = viewModel::onUnitChange
             )
