@@ -15,3 +15,7 @@
 local.properties
 /.idea/deploymentTargetSelector.xml
 /.idea/deviceManager.xml
+# Archivos sensibles (no se suben a GitHub)
+app/google-services.json
+*.jks
+*.keystore
