@@ -50,6 +50,7 @@ import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.outlined.SearchOff
 import com.dsmg11.nexstock.domain.model.stockLevel
 @Composable
@@ -61,6 +62,11 @@ fun CatalogScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    // MOV-21: escanear un producto para encontrarlo en el catálogo
+    val scanBarcode = rememberBarcodeScanner(
+        onScanned = viewModel::onQueryChange,
+        onError = viewModel::onScanError
+    )
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -96,12 +102,16 @@ fun CatalogScreen(
                         onValueChange = viewModel::onQueryChange,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         singleLine = true,
-                        placeholder = { Text("Buscar por código, nombre, marca…") },
+                        placeholder = { Text("Buscar o escanear un producto…") },
                         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                         trailingIcon = {
                             if (uiState.query.isNotEmpty()) {
                                 IconButton(onClick = { viewModel.onQueryChange("") }) {
                                     Icon(Icons.Filled.Close, contentDescription = "Borrar búsqueda")
+                                }
+                            } else {
+                                IconButton(onClick = scanBarcode) {
+                                    Icon(Icons.Filled.QrCodeScanner, contentDescription = "Escanear código de barras")
                                 }
                             }
                         }
@@ -161,6 +171,13 @@ private fun ProductCard(product: Product, onClick: (() -> Unit)?) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    product.barcode?.let {
+                        Text(
+                            "Cód. barras: $it",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     if (product.pendingSync) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
