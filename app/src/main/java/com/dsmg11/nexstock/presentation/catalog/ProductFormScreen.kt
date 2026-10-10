@@ -39,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsmg11.nexstock.domain.model.ProductStatus
 import com.dsmg11.nexstock.domain.model.RotationLevel
+import androidx.compose.material.icons.filled.QrCodeScanner
 
 
 @Composable
@@ -47,6 +48,11 @@ fun ProductFormScreen(
     viewModel: ProductFormViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // escáner de códigos de barras con la cámara
+    val scanBarcode = rememberBarcodeScanner(
+        onScanned = viewModel::onBarcodeScanned,
+        onError = viewModel::onScanError
+    )
 
     LaunchedEffect(uiState.saved) {
         if (uiState.saved) onBack()
@@ -151,10 +157,26 @@ fun ProductFormScreen(
                 optionLabel = { it.displayName },
                 onSelect = viewModel::onRotationChange
             )
+            val barcodeError = uiState.barcodeError
             OutlinedTextField(
                 value = uiState.barcode,
                 onValueChange = viewModel::onBarcodeChange,
                 label = { Text("Código de barras (opcional)") },
+                supportingText = {
+                    Text(
+                        when {
+                            uiState.barcode.isEmpty() -> "Digítalo o toca el ícono para escanearlo"
+                            barcodeError != null -> barcodeError
+                            else -> "Código válido"
+                        }
+                    )
+                },
+                isError = barcodeError != null,
+                trailingIcon = {
+                    IconButton(onClick = scanBarcode) {
+                        Icon(Icons.Filled.QrCodeScanner, contentDescription = "Escanear código de barras")
+                    }
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()

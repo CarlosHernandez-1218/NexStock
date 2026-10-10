@@ -67,6 +67,8 @@ class ProductRepositoryImpl @Inject constructor(
 
     override suspend fun existsProduct(code: String): Boolean =
         productDao.getByCode(code) != null
+    override suspend fun findBarcodeOwner(barcode: String, exceptCode: String): String? =
+        productDao.findBarcodeOwner(barcode, exceptCode)
 
     override suspend fun saveProduct(product: Product): Result<Unit> = runCatching {
         val stamped = product.copy(updatedAt = System.currentTimeMillis(), pendingSync = true)

@@ -17,6 +17,9 @@ interface ProductDao {
 
     @Query("SELECT * FROM products WHERE code = :code LIMIT 1")
     suspend fun getByCode(code: String): ProductEntity?
+    // busca OTRO producto que ya tenga ese código de barras
+    @Query("SELECT code FROM products WHERE barcode = :barcode AND code != :exceptCode LIMIT 1")
+    suspend fun findBarcodeOwner(barcode: String, exceptCode: String): String?
 
     @Upsert
     suspend fun upsert(product: ProductEntity)
