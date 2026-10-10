@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.stockLevel
 import com.dsmg11.nexstock.presentation.catalog.StockBadge
+import androidx.activity.compose.BackHandler
 
 @Composable
 fun ReplenishmentScreen(
@@ -44,12 +45,21 @@ fun ReplenishmentScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    BackHandler(enabled = uiState.step == ReplenishmentStep.DETALLE) {
+        viewModel.onBackToSelection()
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            IconButton(onClick = onBack) {
+            IconButton(onClick = {
+                if (uiState.step == ReplenishmentStep.DETALLE) viewModel.onBackToSelection() else onBack()
+            }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
             }
-            Text("Candidatos de reposición", style = MaterialTheme.typography.titleLarge)
+            Text(
+                if (uiState.step == ReplenishmentStep.DETALLE) "Orden de compra" else "Candidatos de reposición",
+                style = MaterialTheme.typography.titleLarge
+            )
         }
         uiState.myLines?.let { lines ->
             Text(
@@ -66,6 +76,12 @@ fun ReplenishmentScreen(
                 CircularProgressIndicator()
             }
             uiState.error != null -> CenteredMessage(uiState.error!!)
+            uiState.step == ReplenishmentStep.DETALLE -> ReplenishmentDetailStep(
+                state = uiState,
+                onSupplierSelected = viewModel::onSupplierSelected,
+                onDeliveryDateSelected = viewModel::onDeliveryDateSelected,
+                onGenerate = { /* MOV-33: guardar la orden en Firestore */ }
+            )
             uiState.candidates.isEmpty() -> CenteredMessage("No hay productos por debajo del stock mínimo")
             else -> {
                 Row(
@@ -100,7 +116,7 @@ fun ReplenishmentScreen(
                     }
                 }
                 Button(
-                    onClick = { /* MOV-37: pasar a proveedor y fecha de entrega */ },
+                    onClick = viewModel::onContinue,
                     enabled = uiState.canContinue,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 ) {
