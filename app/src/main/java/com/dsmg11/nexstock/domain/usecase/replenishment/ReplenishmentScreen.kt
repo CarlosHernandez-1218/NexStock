@@ -37,6 +37,9 @@ import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.stockLevel
 import com.dsmg11.nexstock.presentation.catalog.StockBadge
 import androidx.activity.compose.BackHandler
+import android.widget.Toast
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun ReplenishmentScreen(
@@ -47,6 +50,14 @@ fun ReplenishmentScreen(
 
     BackHandler(enabled = uiState.step == ReplenishmentStep.DETALLE) {
         viewModel.onBackToSelection()
+    }
+
+    val context = LocalContext.current
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.onMessageShown()
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -80,7 +91,7 @@ fun ReplenishmentScreen(
                 state = uiState,
                 onSupplierSelected = viewModel::onSupplierSelected,
                 onDeliveryDateSelected = viewModel::onDeliveryDateSelected,
-                onGenerate = { /* MOV-33: guardar la orden en Firestore */ }
+                onGenerate = viewModel::onGenerate
             )
             uiState.candidates.isEmpty() -> CenteredMessage("No hay productos por debajo del stock mínimo")
             else -> {

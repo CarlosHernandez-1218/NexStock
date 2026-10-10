@@ -97,7 +97,7 @@ fun ReplenishmentDetailStep(
             enabled = state.canGenerate,
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
         ) {
-            Text("Generar orden de compra")
+            Text(if (state.isSaving) "Guardando…" else "Generar orden de compra")
         }
     }
 }

@@ -12,6 +12,8 @@ import com.dsmg11.nexstock.domain.usecase.catalog.ObserveProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.ObserveUserProfileUseCase
 import com.dsmg11.nexstock.domain.usecase.replenishment.GetReplenishmentCandidatesUseCase
 import com.dsmg11.nexstock.domain.usecase.supplier.ObserveSuppliersUseCase
+import com.dsmg11.nexstock.domain.model.PurchaseOrderItem
+import com.dsmg11.nexstock.domain.usecase.replenishment.CreatePurchaseOrderUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,13 +36,15 @@ data class ReplenishmentUiState(
     val step: ReplenishmentStep = ReplenishmentStep.SELECCION,
     val suppliers: List<Supplier> = emptyList(),
     val supplier: Supplier? = null,
-    val deliveryDate: Long? = null                 // fecha máxima pactada (medianoche UTC, en milisegundos)
+    val deliveryDate: Long? = null,                 // fecha máxima pactada (medianoche UTC, en milisegundos)
+    val isSaving: Boolean = false,
+    val message: String? = null                    // aviso de éxito o error para mostrar una vez
 ) {
     val selectedCount: Int get() = selected.size
     // Se puede continuar con al menos un producto y todas las cantidades mayores que 0
     val canContinue: Boolean get() = selected.isNotEmpty() && selected.values.all { it > 0 }
     // Se puede generar la orden con productos válidos, proveedor y fecha elegidos
-    val canGenerate: Boolean get() = canContinue && supplier != null && deliveryDate != null
+    val canGenerate: Boolean get() = canContinue && supplier != null && deliveryDate != null && !isSaving
 }
 
 @HiltViewModel
@@ -49,7 +53,8 @@ class ReplenishmentViewModel @Inject constructor(
     observeUserProfile: ObserveUserProfileUseCase,
     observeProducts: ObserveProductsUseCase,
     observeSuppliers: ObserveSuppliersUseCase,
-    private val getCandidates: GetReplenishmentCandidatesUseCase
+    private val getCandidates: GetReplenishmentCandidatesUseCase,
+    private val createPurchaseOrder: CreatePurchaseOrderUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReplenishmentUiState())
@@ -124,4 +129,50 @@ class ReplenishmentViewModel @Inject constructor(
     fun onSupplierSelected(supplier: Supplier) = _uiState.update { it.copy(supplier = supplier) }
 
     fun onDeliveryDateSelected(dateMillis: Long) = _uiState.update { it.copy(deliveryDate = dateMillis) }
+
+    fun onGenerate() {
+        val state = _uiState.value
+        val supplier = state.supplier ?: return
+        val deliveryDate = state.deliveryDate ?: return
+        if (!state.canGenerate) return
+
+        val items = state.candidates
+            .filter { it.code in state.selected }
+            .map { p ->
+                PurchaseOrderItem(
+                    code = p.code,
+                    name = p.name,
+                    unit = p.unit,
+                    quantity = state.selected.getValue(p.code)
+                )
+            }
+
+        _uiState.update { it.copy(isSaving = true) }
+        viewModelScope.launch {
+            createPurchaseOrder(items, supplier, deliveryDate)
+                .onSuccess {
+                    // Orden guardada como "Generada": se limpia el formulario
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            selected = emptyMap(),
+                            supplier = null,
+                            deliveryDate = null,
+                            step = ReplenishmentStep.SELECCION,
+                            message = "Orden de compra generada"
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            message = e.message ?: "No se pudo generar la orden"
+                        )
+                    }
+                }
+        }
+    }
+
+    fun onMessageShown() = _uiState.update { it.copy(message = null) }
 }
