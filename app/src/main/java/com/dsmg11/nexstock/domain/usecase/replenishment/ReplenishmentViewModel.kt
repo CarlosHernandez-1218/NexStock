@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.ProductLine
 import com.dsmg11.nexstock.domain.model.UserRole
+import com.dsmg11.nexstock.domain.model.suggestedQuantity
 import com.dsmg11.nexstock.domain.usecase.GetCurrentUserUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.ObserveProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.ObserveUserProfileUseCase
@@ -22,10 +23,15 @@ import javax.inject.Inject
 
 data class ReplenishmentUiState(
     val candidates: List<Product> = emptyList(),
-    val myLines: List<ProductLine>? = null,   // null = ve todas las líneas
+    val selected: Map<String, Int> = emptyMap(),   // código del producto -> cantidad
+    val myLines: List<ProductLine>? = null,
     val isLoading: Boolean = true,
     val error: String? = null
-)
+) {
+    val selectedCount: Int get() = selected.size
+    // Se puede continuar con al menos un producto y todas las cantidades mayores que 0
+    val canContinue: Boolean get() = selected.isNotEmpty() && selected.values.all { it > 0 }
+}
 
 @HiltViewModel
 class ReplenishmentViewModel @Inject constructor(
@@ -51,10 +57,39 @@ class ReplenishmentViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = "No se pudieron cargar los candidatos") }
                 }
                 .collect { (candidates, lines) ->
-                    _uiState.update {
-                        it.copy(candidates = candidates, myLines = lines, isLoading = false, error = null)
+                    _uiState.update { state ->
+                        val codes = candidates.map { it.code }.toSet()
+                        state.copy(
+                            candidates = candidates,
+                            // si un producto ya no es candidato, se quita de la selección
+                            selected = state.selected.filterKeys { it in codes },
+                            myLines = lines,
+                            isLoading = false,
+                            error = null
+                        )
                     }
                 }
         }
     }
+
+    fun onToggleProduct(product: Product) = _uiState.update { state ->
+        val selected = if (product.code in state.selected) {
+            state.selected - product.code
+        } else {
+            state.selected + (product.code to product.suggestedQuantity)
+        }
+        state.copy(selected = selected)
+    }
+
+    fun onQuantityChange(code: String, text: String) = _uiState.update { state ->
+        if (code !in state.selected) return@update state
+        val quantity = text.filter { it.isDigit() }.take(5).toIntOrNull() ?: 0
+        state.copy(selected = state.selected + (code to quantity))
+    }
+
+    fun onSelectAll() = _uiState.update { state ->
+        state.copy(selected = state.candidates.associate { it.code to (state.selected[it.code] ?: it.suggestedQuantity) })
+    }
+
+    fun onClearSelection() = _uiState.update { it.copy(selected = emptyMap()) }
 }
