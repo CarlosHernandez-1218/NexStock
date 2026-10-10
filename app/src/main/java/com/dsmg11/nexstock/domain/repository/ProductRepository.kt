@@ -7,5 +7,7 @@ interface ProductRepository {
     fun observeProducts(): Flow<List<Product>>
     fun observeProduct(code: String): Flow<Product?>
     suspend fun existsProduct(code: String): Boolean
+    //código del otro producto que ya usa ese código de barras (null si está libre)
+    suspend fun findBarcodeOwner(barcode: String, exceptCode: String): String?
     suspend fun saveProduct(product: Product): Result<Unit>
 }

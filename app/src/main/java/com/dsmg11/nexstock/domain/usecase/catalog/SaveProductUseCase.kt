@@ -17,6 +17,13 @@ class SaveProductUseCase @Inject constructor(
             barcode = product.barcode?.trim()?.ifBlank { null }
         )
 
+        //el código de barras es opcional, pero si se ingresa debe ser válido y único
+        val barcode = clean.barcode
+        val barcodeError = barcode?.let { BarcodeValidator.error(it) }
+        val barcodeOwner = if (barcode != null && barcodeError == null) {
+            repository.findBarcodeOwner(barcode, exceptCode = clean.code)
+        } else null
+
         val error = when {
             !CODE_REGEX.matches(clean.code) ->
                 "El código debe tener de 3 a 20 caracteres (letras, números o guiones)"
@@ -27,8 +34,11 @@ class SaveProductUseCase @Inject constructor(
             clean.price <= 0.0 -> "El precio debe ser mayor a 0"
             clean.minStock < 0 -> "El stock mínimo no puede ser negativo"
             clean.stock < 0 -> "El stock no puede ser negativo"
+            barcodeError != null -> barcodeError
             isNew && repository.existsProduct(clean.code) ->
                 "Ya existe un producto con el código ${clean.code}"
+            barcodeOwner != null ->
+                "El código de barras $barcode ya está asignado al producto $barcodeOwner"
             else -> null
         }
         if (error != null) return Result.failure(IllegalArgumentException(error))

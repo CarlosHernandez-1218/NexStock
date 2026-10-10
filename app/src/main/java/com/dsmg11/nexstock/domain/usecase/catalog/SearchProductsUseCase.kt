@@ -6,13 +6,13 @@ import javax.inject.Inject
 
 class SearchProductsUseCase @Inject constructor() {
 
-    // Todos los términos deben aparecer en código, nombre, marca, línea o categoría
+    /// Todos los términos deben aparecer en código, nombre, marca, línea, categoría o código de barras
     operator fun invoke(products: List<Product>, query: String): List<Product> {
         val terms = normalize(query).split(" ").filter { it.isNotBlank() }
         if (terms.isEmpty()) return products
         return products.filter { p ->
             val haystack = normalize(
-                "${p.code} ${p.name} ${p.brand} ${p.line.displayName} ${p.category}"
+                "${p.code} ${p.name} ${p.brand} ${p.line.displayName} ${p.category} ${p.barcode.orEmpty()}"
             )
             terms.all { it in haystack }
         }

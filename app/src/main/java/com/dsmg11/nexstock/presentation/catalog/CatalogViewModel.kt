@@ -72,4 +72,8 @@ class CatalogViewModel @Inject constructor(
     fun messageShown() {
         _uiState.update { it.copy(message = null) }
     }
+    // MOV-21: si el escáner falla, se muestra en el snackbar
+    fun onScanError(message: String) {
+        _uiState.update { it.copy(message = message) }
+    }
 }

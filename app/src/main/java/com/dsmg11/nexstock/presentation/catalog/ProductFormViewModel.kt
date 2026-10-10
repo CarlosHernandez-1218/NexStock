@@ -3,30 +3,31 @@ package com.dsmg11.nexstock.presentation.catalog
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dsmg11.nexstock.domain.model.MasterItem
+import com.dsmg11.nexstock.domain.model.MasterType
 import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.ProductLine
 import com.dsmg11.nexstock.domain.model.ProductStatus
 import com.dsmg11.nexstock.domain.model.RotationLevel
+import com.dsmg11.nexstock.domain.model.sameAs
 import com.dsmg11.nexstock.domain.usecase.GetCurrentUserUseCase
+import com.dsmg11.nexstock.domain.usecase.catalog.BarcodeValidator
 import com.dsmg11.nexstock.domain.usecase.catalog.CatalogPermissions
 import com.dsmg11.nexstock.domain.usecase.catalog.ObserveProductUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.SaveProductUseCase
+import com.dsmg11.nexstock.domain.usecase.master.ObserveMasterItemsUseCase
+import com.dsmg11.nexstock.domain.usecase.master.ObserveProductLinesUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.ObserveUserProfileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.dsmg11.nexstock.domain.model.MasterItem
-import com.dsmg11.nexstock.domain.model.MasterType
-import com.dsmg11.nexstock.domain.model.sameAs
-import com.dsmg11.nexstock.domain.usecase.master.ObserveMasterItemsUseCase
-import com.dsmg11.nexstock.domain.usecase.master.ObserveProductLinesUseCase
-import kotlinx.coroutines.flow.catch
 
 data class ProductFormUiState(
     val isNew: Boolean = true,
@@ -51,6 +52,10 @@ data class ProductFormUiState(
     // Solo las categorías de la línea elegida
     val categoriesForLine: List<String>
         get() = allCategories.filter { it.parentId == line?.name }.map { it.name }
+
+    // MOV-21: validación en vivo del código de barras (null = vacío o válido)
+    val barcodeError: String?
+        get() = barcode.takeIf { it.isNotEmpty() }?.let { BarcodeValidator.error(it) }
 }
 
 @HiltViewModel
@@ -126,7 +131,17 @@ class ProductFormViewModel @Inject constructor(
     fun onMinStockChange(value: String) = _uiState.update { it.copy(minStock = value.filter(Char::isDigit)) }
     fun onStatusChange(value: ProductStatus) = _uiState.update { it.copy(status = value) }
     fun onRotationChange(value: RotationLevel) = _uiState.update { it.copy(rotation = value) }
-    fun onBarcodeChange(value: String) = _uiState.update { it.copy(barcode = value.filter(Char::isDigit)) }
+
+    // MOV-21: código de barras digitado
+    fun onBarcodeChange(value: String) =
+        _uiState.update { it.copy(barcode = value.filter(Char::isDigit).take(MAX_BARCODE_LENGTH)) }
+
+    // MOV-21: código de barras leído con la cámara
+    fun onBarcodeScanned(value: String) = _uiState.update {
+        it.copy(barcode = value.filter(Char::isDigit).take(MAX_BARCODE_LENGTH), errorMessage = null)
+    }
+
+    fun onScanError(message: String) = _uiState.update { it.copy(errorMessage = message) }
 
     fun save() {
         val state = _uiState.value
@@ -167,5 +182,9 @@ class ProductFormViewModel @Inject constructor(
                 .onSuccess { _uiState.update { it.copy(isSaving = false, saved = true) } }
                 .onFailure { e -> _uiState.update { it.copy(isSaving = false, errorMessage = e.message) } }
         }
+    }
+
+    private companion object {
+        const val MAX_BARCODE_LENGTH = 13
     }
 }
