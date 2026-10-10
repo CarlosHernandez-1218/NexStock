@@ -16,4 +16,5 @@ sealed class Screen(val route: String) {
         fun createRoute(code: String? = null) =
             if (code == null) "product_form" else "product_form?code=$code"
     }
+    data object Replenishment : Screen("replenishment")
 }
