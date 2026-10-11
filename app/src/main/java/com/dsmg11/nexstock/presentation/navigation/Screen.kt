@@ -17,4 +17,5 @@ sealed class Screen(val route: String) {
             if (code == null) "product_form" else "product_form?code=$code"
     }
     data object Replenishment : Screen("replenishment")
+    data object Orders : Screen("orders")
 }
