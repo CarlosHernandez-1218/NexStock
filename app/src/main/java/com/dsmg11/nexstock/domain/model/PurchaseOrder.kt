@@ -4,6 +4,7 @@ data class PurchaseOrderItem(
     val code: String = "",
     val name: String = "",
     val unit: String = "",
+    val line: String = "",                   // código de la línea (ej. PISOS)
     val quantity: Int = 0
 )
 

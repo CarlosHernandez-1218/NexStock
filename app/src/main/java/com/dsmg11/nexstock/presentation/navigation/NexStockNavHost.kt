@@ -25,6 +25,7 @@ import com.dsmg11.nexstock.presentation.master.MasterDataScreen
 import com.dsmg11.nexstock.presentation.suppliers.SupplierListScreen
 import com.dsmg11.nexstock.presentation.suppliers.SupplierScreen
 import com.dsmg11.nexstock.presentation.replenishment.ReplenishmentScreen
+import com.dsmg11.nexstock.presentation.replenishment.OrderListScreen
 
 @Composable
 fun NexStockNavHost(
@@ -72,7 +73,7 @@ fun NexStockNavHost(
                         AppFeature.STOCK -> navController.navigate(Screen.Stock.route)
                         AppFeature.MAESTROS -> navController.navigate(Screen.MasterData.route)
                         AppFeature.PROVEEDORES -> navController.navigate(Screen.Suppliers.route)
-                        AppFeature.ORDENES_COMPRA -> navController.navigate(Screen.Replenishment.route)
+                        AppFeature.ORDENES_COMPRA -> navController.navigate(Screen.Orders.route)
                         else -> Toast.makeText(
                             context,
                             "${feature.title}: disponible en el Sprint ${feature.sprint}",
@@ -129,6 +130,12 @@ fun NexStockNavHost(
         }
         composable(Screen.Replenishment.route) {
             ReplenishmentScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Screen.Orders.route) {
+            OrderListScreen(
+                onBack = { navController.popBackStack() },
+                onNewRequest = { navController.navigate(Screen.Replenishment.route) }
+            )
         }
     }
 }

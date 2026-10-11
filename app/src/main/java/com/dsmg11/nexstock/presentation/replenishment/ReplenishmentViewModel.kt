@@ -143,6 +143,7 @@ class ReplenishmentViewModel @Inject constructor(
                     code = p.code,
                     name = p.name,
                     unit = p.unit,
+                    line = p.line.name,
                     quantity = state.selected.getValue(p.code)
                 )
             }
