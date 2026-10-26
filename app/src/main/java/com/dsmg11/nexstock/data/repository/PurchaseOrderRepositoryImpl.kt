@@ -3,6 +3,7 @@ package com.dsmg11.nexstock.data.repository
 import com.dsmg11.nexstock.domain.model.OrderStatus
 import com.dsmg11.nexstock.domain.model.PurchaseOrder
 import com.dsmg11.nexstock.domain.repository.PurchaseOrderRepository
+import com.dsmg11.nexstock.domain.model.OrderSchedule
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.Transaction
@@ -17,6 +18,7 @@ class PurchaseOrderRepositoryImpl @Inject constructor(
 ) : PurchaseOrderRepository {
 
     private val collection = firestore.collection("ordenes_compra")
+    private val schedulesCollection = firestore.collection("cronogramas_oc")
 
     override suspend fun createOrder(order: PurchaseOrder): Result<String> =
         try {
@@ -99,4 +101,26 @@ class PurchaseOrderRepositoryImpl @Inject constructor(
             }
         awaitClose { registration.remove() }
     }
+
+    override fun observeSchedules(): Flow<List<OrderSchedule>> = callbackFlow {
+        val registration = schedulesCollection.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            val schedules = snapshot?.documents.orEmpty().mapNotNull { doc ->
+                doc.toObject(OrderSchedule::class.java)?.copy(lineCode = doc.id)
+            }
+            trySend(schedules)
+        }
+        awaitClose { registration.remove() }
+    }
+
+    override suspend fun saveSchedule(schedule: OrderSchedule): Result<Unit> =
+        try {
+            schedulesCollection.document(schedule.lineCode).set(schedule).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException("No se pudo guardar el cronograma", e))
+        }
 }
