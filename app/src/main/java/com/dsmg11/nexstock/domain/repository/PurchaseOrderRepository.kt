@@ -10,5 +10,6 @@ interface PurchaseOrderRepository {
     // Cambia el estado dentro de una transacción, validando la transición con el estado actual
     suspend fun updateStatus(orderId: String, status: OrderStatus): Result<Unit>
     // Todas las órdenes en tiempo real, las más recientes primero
+    suspend fun consolidate(sourceIds: List<String>, merged: PurchaseOrder): Result<String>
     fun observeOrders(): Flow<List<PurchaseOrder>>
 }

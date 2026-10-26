@@ -26,6 +26,42 @@ class PurchaseOrderRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Result.failure(IllegalStateException("No se pudo guardar la orden de compra", e))
         }
+    override suspend fun consolidate(
+        sourceIds: List<String>,
+        merged: PurchaseOrder
+    ): Result<String> =
+        try {
+            val newRef = collection.document()
+            val sourceRefs = sourceIds.map { collection.document(it) }
+
+            val rejection: String? = firestore.runTransaction(Transaction.Function<String?> { tx ->
+                val snapshots = sourceRefs.map { tx.get(it) }
+                for (snap in snapshots) {
+                    if (snap.getString("status") != OrderStatus.GENERADA.name) {
+                        return@Function "Alguna orden ya no está en estado Generada"
+                    }
+                    if (snap.getString("supplierRuc") != merged.supplierRuc) {
+                        return@Function "Las órdenes ya no son del mismo proveedor"
+                    }
+                }
+                tx.set(newRef, merged.copy(id = newRef.id))
+                sourceRefs.forEach { ref ->
+                    tx.update(
+                        ref,
+                        mapOf(
+                            "status" to OrderStatus.CANCELADA.name,
+                            "consolidatedInto" to newRef.id
+                        )
+                    )
+                }
+                null
+            }).await()
+
+            if (rejection != null) Result.failure(IllegalStateException(rejection))
+            else Result.success(newRef.id)
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException("No se pudo consolidar las órdenes", e))
+        }
 
     override suspend fun updateStatus(orderId: String, status: OrderStatus): Result<Unit> =
         try {
