@@ -38,4 +38,12 @@ object OrderPermissions {
             UserRole.ALMACENERO -> emptyList()
         }
     }
+
+    // Solo el Administrador consolida órdenes
+    fun canConsolidate(profile: UserProfile?): Boolean =
+        profile?.role == UserRole.ADMINISTRADOR
+
+    // Solo se pueden juntar órdenes que todavía están Generadas
+    fun isConsolidable(order: PurchaseOrder): Boolean =
+        order.status == OrderStatus.GENERADA
 }
