@@ -10,6 +10,7 @@ import com.dsmg11.nexstock.domain.usecase.profile.ObserveUserProfileUseCase
 import com.dsmg11.nexstock.domain.usecase.replenishment.ChangeOrderStatusUseCase
 import com.dsmg11.nexstock.domain.usecase.replenishment.ObserveOrdersUseCase
 import com.dsmg11.nexstock.domain.usecase.replenishment.OrderPermissions
+import com.dsmg11.nexstock.domain.usecase.replenishment.ConsolidateOrdersUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,16 +27,24 @@ data class OrderListUiState(
     val profile: UserProfile? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
-    val updatingId: String? = null,    // orden que se está actualizando
-    val message: String? = null        // aviso para mostrar una vez
-)
+    val updatingId: String? = null,
+    val message: String? = null,
+    val selectedIds: Set<String> = emptySet(),     // órdenes marcadas para consolidar
+    val isConsolidating: Boolean = false
+) {
+    val selectedOrders: List<PurchaseOrder> get() = orders.filter { it.id in selectedIds }
+    // Con una orden marcada, solo se pueden marcar las del mismo proveedor
+    val selectedSupplierRuc: String? get() = selectedOrders.firstOrNull()?.supplierRuc
+    val canConsolidate: Boolean get() = selectedOrders.size >= 2 && !isConsolidating
+}
 
 @HiltViewModel
 class OrderListViewModel @Inject constructor(
     getCurrentUser: GetCurrentUserUseCase,
     observeUserProfile: ObserveUserProfileUseCase,
     observeOrders: ObserveOrdersUseCase,
-    private val changeOrderStatus: ChangeOrderStatusUseCase
+    private val changeOrderStatus: ChangeOrderStatusUseCase,
+    private val consolidateOrders: ConsolidateOrdersUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OrderListUiState())
@@ -53,8 +62,14 @@ class OrderListViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = "No se pudieron cargar las órdenes") }
                 }
                 .collect { (orders, p) ->
-                    _uiState.update {
-                        it.copy(orders = orders, profile = p, isLoading = false, error = null)
+                    _uiState.update { state ->
+                        val stillValid = state.selectedIds.filter { id ->
+                            orders.any { it.id == id && it.status == OrderStatus.GENERADA }
+                        }.toSet()
+                        state.copy(
+                            orders = orders, profile = p, isLoading = false, error = null,
+                            selectedIds = stillValid
+                        )
                     }
                 }
         }
@@ -73,6 +88,37 @@ class OrderListViewModel @Inject constructor(
                 .onFailure { e ->
                     _uiState.update {
                         it.copy(updatingId = null, message = e.message ?: "No se pudo cambiar el estado")
+                    }
+                }
+        }
+    }
+
+    fun onToggleSelect(order: PurchaseOrder) = _uiState.update { state ->
+        val ids = if (order.id in state.selectedIds) state.selectedIds - order.id
+        else state.selectedIds + order.id
+        state.copy(selectedIds = ids)
+    }
+
+    fun onClearSelection() = _uiState.update { it.copy(selectedIds = emptySet()) }
+
+    fun onConsolidate() {
+        val state = _uiState.value
+        if (!state.canConsolidate) return
+        _uiState.update { it.copy(isConsolidating = true) }
+        viewModelScope.launch {
+            consolidateOrders(state.selectedOrders)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isConsolidating = false,
+                            selectedIds = emptySet(),
+                            message = "Órdenes consolidadas. Ya puedes aprobar la orden nueva"
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(isConsolidating = false, message = e.message ?: "No se pudo consolidar")
                     }
                 }
         }

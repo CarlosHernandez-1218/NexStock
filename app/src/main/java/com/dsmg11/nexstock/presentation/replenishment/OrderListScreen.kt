@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsmg11.nexstock.domain.model.OrderStatus
 import com.dsmg11.nexstock.domain.model.PurchaseOrder
 import com.dsmg11.nexstock.domain.usecase.replenishment.OrderPermissions
+import androidx.compose.material3.Checkbox
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -61,6 +62,7 @@ fun OrderListScreen(
     var expandedId by remember { mutableStateOf<String?>(null) }
     // Cambio pendiente de confirmar: la orden y el estado al que se quiere pasar
     var pending by remember { mutableStateOf<Pair<PurchaseOrder, OrderStatus>?>(null) }
+    var showConsolidate by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -79,6 +81,23 @@ fun OrderListScreen(
             Button(onClick = onNewRequest) { Text("Nueva solicitud") }
         }
 
+        if (OrderPermissions.canConsolidate(uiState.profile) && uiState.selectedIds.isNotEmpty()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Text(
+                    "${uiState.selectedIds.size} seleccionadas",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = viewModel::onClearSelection) { Text("Limpiar") }
+                Button(
+                    onClick = { showConsolidate = true },
+                    enabled = uiState.canConsolidate
+                ) { Text("Consolidar") }
+            }
+        }
         when {
             uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -95,6 +114,12 @@ fun OrderListScreen(
                         expanded = expandedId == order.id,
                         transitions = OrderPermissions.availableTransitions(uiState.profile, order),
                         isUpdating = uiState.updatingId == order.id,
+                        showCheckbox = OrderPermissions.canConsolidate(uiState.profile) &&
+                                OrderPermissions.isConsolidable(order),
+                        checked = order.id in uiState.selectedIds,
+                        checkEnabled = uiState.selectedSupplierRuc == null ||
+                                uiState.selectedSupplierRuc == order.supplierRuc,
+                        onCheckedChange = { viewModel.onToggleSelect(order) },
                         onToggle = { expandedId = if (expandedId == order.id) null else order.id },
                         onTransition = { next -> pending = order to next }
                     )
@@ -124,6 +149,30 @@ fun OrderListScreen(
             }
         )
     }
+
+    if (showConsolidate) {
+        val selected = uiState.selectedOrders
+        AlertDialog(
+            onDismissRequest = { showConsolidate = false },
+            title = { Text("Consolidar órdenes") },
+            text = {
+                Text(
+                    "Se juntarán ${selected.size} órdenes de " +
+                            "${selected.firstOrNull()?.supplierName.orEmpty()} en una sola orden nueva. " +
+                            "Las originales pasarán a Cancelada."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.onConsolidate()
+                    showConsolidate = false
+                }) { Text("Consolidar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConsolidate = false }) { Text("Cancelar") }
+            }
+        )
+    }
 }
 
 @Composable
@@ -132,12 +181,19 @@ private fun OrderCard(
     expanded: Boolean,
     transitions: List<OrderStatus>,
     isUpdating: Boolean,
+    showCheckbox: Boolean,
+    checked: Boolean,
+    checkEnabled: Boolean,
+    onCheckedChange: () -> Unit,
     onToggle: () -> Unit,
     onTransition: (OrderStatus) -> Unit
-) {
+){
     OutlinedCard(onClick = onToggle, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showCheckbox) {
+                    Checkbox(checked = checked, onCheckedChange = { onCheckedChange() }, enabled = checkEnabled)
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         "${shortId(order)} · ${order.supplierName}",
@@ -170,6 +226,20 @@ private fun OrderCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+                if (order.consolidatedInto.isNotEmpty()) {
+                    Text(
+                        "Consolidada en ${shortId(order.consolidatedInto)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (order.consolidatedFrom.isNotEmpty()) {
+                    Text(
+                        "Consolidación de ${order.consolidatedFrom.size} órdenes",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
                 if (transitions.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
@@ -231,6 +301,7 @@ private fun actionLabel(next: OrderStatus): String = when (next) {
 }
 
 private fun shortId(order: PurchaseOrder): String = "OC-${order.id.takeLast(6).uppercase()}"
+private fun shortId(id: String): String = "OC-${id.takeLast(6).uppercase()}"
 
 // La fecha de entrega se guarda en UTC (DatePicker); la de creación es hora local
 private fun formatDate(millis: Long, utc: Boolean = true): String =
