@@ -14,6 +14,8 @@ import com.dsmg11.nexstock.domain.usecase.replenishment.GetReplenishmentCandidat
 import com.dsmg11.nexstock.domain.usecase.supplier.ObserveSuppliersUseCase
 import com.dsmg11.nexstock.domain.model.PurchaseOrderItem
 import com.dsmg11.nexstock.domain.usecase.replenishment.CreatePurchaseOrderUseCase
+import com.dsmg11.nexstock.domain.model.OrderSchedule
+import com.dsmg11.nexstock.domain.usecase.replenishment.ObserveOrderSchedulesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +40,7 @@ data class ReplenishmentUiState(
     val supplier: Supplier? = null,
     val deliveryDate: Long? = null,                 // fecha máxima pactada (medianoche UTC, en milisegundos)
     val isSaving: Boolean = false,
+    val schedules: List<OrderSchedule> = emptyList(),
     val message: String? = null                    // aviso de éxito o error para mostrar una vez
 ) {
     val selectedCount: Int get() = selected.size
@@ -45,6 +48,12 @@ data class ReplenishmentUiState(
     val canContinue: Boolean get() = selected.isNotEmpty() && selected.values.all { it > 0 }
     // Se puede generar la orden con productos válidos, proveedor y fecha elegidos
     val canGenerate: Boolean get() = canContinue && supplier != null && deliveryDate != null && !isSaving
+    // Cronogramas de las líneas que aparecen entre los candidatos, el más cercano primero
+    val relevantSchedules: List<OrderSchedule>
+        get() {
+            val codes = candidates.map { it.line.name }.toSet()
+            return schedules.filter { it.lineCode in codes }.sortedBy { it.nextDate }
+        }
 }
 
 @HiltViewModel
@@ -53,6 +62,7 @@ class ReplenishmentViewModel @Inject constructor(
     observeUserProfile: ObserveUserProfileUseCase,
     observeProducts: ObserveProductsUseCase,
     observeSuppliers: ObserveSuppliersUseCase,
+    observeSchedules: ObserveOrderSchedulesUseCase,
     private val getCandidates: GetReplenishmentCandidatesUseCase,
     private val createPurchaseOrder: CreatePurchaseOrderUseCase
 ) : ViewModel() {
@@ -94,6 +104,12 @@ class ReplenishmentViewModel @Inject constructor(
             observeSuppliers()
                 .catch { emit(emptyList()) }
                 .collect { list -> _uiState.update { it.copy(suppliers = list) } }
+        }
+        // Cronogramas por línea (MOV-35). Si falla, el aviso simplemente no se muestra.
+        viewModelScope.launch {
+            observeSchedules()
+                .catch { emit(emptyList()) }
+                .collect { list -> _uiState.update { it.copy(schedules = list) } }
         }
     }
 
