@@ -16,5 +16,7 @@ data class PurchaseOrder(
     val deliveryDate: Long = 0L,             // fecha máxima pactada (medianoche UTC, en milisegundos)
     val status: OrderStatus = OrderStatus.GENERADA,
     val createdBy: String = "",              // uid del usuario que la generó
-    val createdAt: Long = 0L
+    val createdAt: Long = 0L,
+    val consolidatedFrom: List<String> = emptyList(),  // ids de las órdenes que se juntaron en esta
+    val consolidatedInto: String = ""                   // si tiene valor, esta orden se juntó en otra
 )
