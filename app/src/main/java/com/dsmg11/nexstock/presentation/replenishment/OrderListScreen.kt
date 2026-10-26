@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsmg11.nexstock.domain.model.OrderStatus
 import com.dsmg11.nexstock.domain.model.PurchaseOrder
 import com.dsmg11.nexstock.domain.usecase.replenishment.OrderPermissions
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Checkbox
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -55,6 +56,7 @@ import java.util.TimeZone
 fun OrderListScreen(
     onBack: () -> Unit,
     onNewRequest: () -> Unit,
+    onSchedule: () -> Unit,
     viewModel: OrderListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -78,6 +80,9 @@ fun OrderListScreen(
             }
             Text("Órdenes de compra", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
+            IconButton(onClick = onSchedule) {
+                Icon(Icons.Filled.DateRange, contentDescription = "Cronograma")
+            }
             Button(onClick = onNewRequest) { Text("Nueva solicitud") }
         }
 

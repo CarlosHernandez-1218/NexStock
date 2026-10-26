@@ -26,6 +26,7 @@ import com.dsmg11.nexstock.presentation.suppliers.SupplierListScreen
 import com.dsmg11.nexstock.presentation.suppliers.SupplierScreen
 import com.dsmg11.nexstock.presentation.replenishment.ReplenishmentScreen
 import com.dsmg11.nexstock.presentation.replenishment.OrderListScreen
+import com.dsmg11.nexstock.presentation.replenishment.OrderScheduleScreen
 
 @Composable
 fun NexStockNavHost(
@@ -134,8 +135,12 @@ fun NexStockNavHost(
         composable(Screen.Orders.route) {
             OrderListScreen(
                 onBack = { navController.popBackStack() },
-                onNewRequest = { navController.navigate(Screen.Replenishment.route) }
+                onNewRequest = { navController.navigate(Screen.Replenishment.route) },
+                onSchedule = { navController.navigate(Screen.Schedule.route) }
             )
+        }
+        composable(Screen.Schedule.route) {
+            OrderScheduleScreen(onBack = { navController.popBackStack() })
         }
     }
 }

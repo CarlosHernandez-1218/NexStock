@@ -36,6 +36,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.stockLevel
 import com.dsmg11.nexstock.presentation.catalog.StockBadge
+import com.dsmg11.nexstock.domain.model.ScheduleStatus
+import com.dsmg11.nexstock.domain.model.statusOn
+import com.dsmg11.nexstock.domain.model.todayUtcMillis
 import androidx.activity.compose.BackHandler
 import android.widget.Toast
 import androidx.compose.runtime.LaunchedEffect
@@ -82,6 +85,19 @@ fun ReplenishmentScreen(
             )
         }
 
+        if (uiState.step == ReplenishmentStep.SELECCION) {
+            uiState.relevantSchedules.forEach { schedule ->
+                val status = schedule.statusOn(todayUtcMillis())
+                Text(
+                    "Cronograma ${schedule.lineCode}: ${scheduleStatusLabel(status)} " +
+                            "(${formatScheduleDate(schedule.nextDate)})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (status == ScheduleStatus.VENCIDO) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 12.dp, bottom = 2.dp)
+                )
+            }
+        }
         when {
             uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
