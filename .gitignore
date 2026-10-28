@@ -19,3 +19,5 @@ local.properties
 app/google-services.json
 *.jks
 *.keystore
+# Caché del compilador de Kotlin
+.kotlin/
