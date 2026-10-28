@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.dsmg11.nexstock.data.local.NexStockDatabase
 import com.dsmg11.nexstock.data.local.ProductDao
+import com.dsmg11.nexstock.data.local.ReceptionDao
 import com.dsmg11.nexstock.data.local.UserProfileDao
 import dagger.Module
 import dagger.Provides
@@ -30,4 +31,8 @@ object DatabaseModule {
     @Provides
     fun provideProductDao(database: NexStockDatabase): ProductDao =
         database.productDao()
+
+    @Provides
+    fun provideReceptionDao(database: NexStockDatabase): ReceptionDao =
+        database.receptionDao()
 }

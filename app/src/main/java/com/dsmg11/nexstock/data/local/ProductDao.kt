@@ -45,4 +45,10 @@ interface ProductDao {
         val pending = getPendingCodes().toSet()
         upsertAll(products.filter { it.code !in pending })
     }
+
+    // --- Recepción (HU07) ---
+    // Suma lo recibido al stock local. NO marca pendingSync: en Firestore el stock
+    // lo sube ReceptionSyncWorker con FieldValue.increment, así no se cuenta dos veces.
+    @Query("UPDATE products SET stock = stock + :quantity WHERE code = :code")
+    suspend fun addStock(code: String, quantity: Int)
 }
