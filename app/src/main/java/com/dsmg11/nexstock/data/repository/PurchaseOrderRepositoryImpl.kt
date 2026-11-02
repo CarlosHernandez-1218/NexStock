@@ -7,6 +7,7 @@ import com.dsmg11.nexstock.domain.model.OrderSchedule
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.Transaction
+import com.dsmg11.nexstock.domain.model.OrderExtension
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -19,6 +20,7 @@ class PurchaseOrderRepositoryImpl @Inject constructor(
 
     private val collection = firestore.collection("ordenes_compra")
     private val schedulesCollection = firestore.collection("cronogramas_oc")
+    private val extensionsCollection = firestore.collection("prorrogas_oc")
 
     override suspend fun createOrder(order: PurchaseOrder): Result<String> =
         try {
@@ -123,4 +125,42 @@ class PurchaseOrderRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Result.failure(IllegalStateException("No se pudo guardar el cronograma", e))
         }
+
+    override suspend fun extendDeadline(orderId: String, extension: OrderExtension): Result<Unit> =
+        try {
+            val orderRef = collection.document(orderId)
+            val extensionRef = extensionsCollection.document()
+            val rejection: String? = firestore.runTransaction(Transaction.Function<String?> { tx ->
+                val snapshot = tx.get(orderRef)
+                val current = OrderStatus.entries.firstOrNull { it.name == snapshot.getString("status") }
+                    ?: return@Function "La orden no existe o no tiene un estado válido"
+                if (current.isFinal) {
+                    return@Function "La orden ya está en ${current.displayName}; no admite cambios de fecha"
+                }
+                val previous = snapshot.getLong("deliveryDate") ?: 0L
+                tx.update(orderRef, "deliveryDate", extension.newDate)
+                tx.set(extensionRef, extension.copy(id = extensionRef.id, previousDate = previous))
+                null
+            }).await()
+
+            if (rejection != null) Result.failure(IllegalStateException(rejection))
+            else Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException("No se pudo registrar la prórroga", e))
+        }
+
+    override fun observeExtensionsSince(since: Long): Flow<List<OrderExtension>> = callbackFlow {
+        val registration = extensionsCollection
+            .whereGreaterThan("createdAt", since)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                trySend(snapshot?.documents.orEmpty().mapNotNull { doc ->
+                    doc.toObject(OrderExtension::class.java)?.copy(id = doc.id)
+                })
+            }
+        awaitClose { registration.remove() }
+    }
 }

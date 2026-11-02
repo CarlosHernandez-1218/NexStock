@@ -4,6 +4,7 @@ import com.dsmg11.nexstock.domain.model.OrderStatus
 import com.dsmg11.nexstock.domain.model.PurchaseOrder
 import kotlinx.coroutines.flow.Flow
 import com.dsmg11.nexstock.domain.model.OrderSchedule
+import com.dsmg11.nexstock.domain.model.OrderExtension
 
 interface PurchaseOrderRepository {
     // Devuelve el id de la orden creada
@@ -17,4 +18,8 @@ interface PurchaseOrderRepository {
     // Crea o reemplaza el cronograma de una línea
     suspend fun saveSchedule(schedule: OrderSchedule): Result<Unit>
     fun observeOrders(): Flow<List<PurchaseOrder>>
+    // Cambia la fecha de la orden y guarda el registro de la prórroga, todo en una transacción
+    suspend fun extendDeadline(orderId: String, extension: OrderExtension): Result<Unit>
+    // Prórrogas registradas después de la marca de tiempo indicada, en tiempo real
+    fun observeExtensionsSince(since: Long): Flow<List<OrderExtension>>
 }
