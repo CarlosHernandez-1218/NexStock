@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsmg11.nexstock.domain.model.OrderStatus
 import com.dsmg11.nexstock.domain.model.PurchaseOrder
 import com.dsmg11.nexstock.domain.usecase.replenishment.OrderPermissions
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Checkbox
 import java.text.SimpleDateFormat
@@ -57,6 +58,7 @@ fun OrderListScreen(
     onBack: () -> Unit,
     onNewRequest: () -> Unit,
     onSchedule: () -> Unit,
+    onPendingReport: () -> Unit,
     viewModel: OrderListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -80,6 +82,9 @@ fun OrderListScreen(
             }
             Text("Órdenes de compra", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
+            IconButton(onClick = onPendingReport) {
+                Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Órdenes pendientes")
+            }
             IconButton(onClick = onSchedule) {
                 Icon(Icons.Filled.DateRange, contentDescription = "Cronograma")
             }
@@ -305,11 +310,11 @@ private fun actionLabel(next: OrderStatus): String = when (next) {
     else -> next.displayName
 }
 
-private fun shortId(order: PurchaseOrder): String = "OC-${order.id.takeLast(6).uppercase()}"
-private fun shortId(id: String): String = "OC-${id.takeLast(6).uppercase()}"
+fun shortId(order: PurchaseOrder): String = "OC-${order.id.takeLast(6).uppercase()}"
+fun shortId(id: String): String = "OC-${id.takeLast(6).uppercase()}"
 
 // La fecha de entrega se guarda en UTC (DatePicker); la de creación es hora local
-private fun formatDate(millis: Long, utc: Boolean = true): String =
+fun formatDate(millis: Long, utc: Boolean = true): String =
     SimpleDateFormat("dd/MM/yyyy", Locale("es", "PE")).apply {
         if (utc) timeZone = TimeZone.getTimeZone("UTC")
     }.format(Date(millis))
