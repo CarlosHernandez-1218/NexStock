@@ -2,6 +2,7 @@ package com.dsmg11.nexstock.data.repository
 
 import android.content.Context
 import com.dsmg11.nexstock.data.local.ProductDao
+import com.dsmg11.nexstock.data.local.ReceptionDao
 import com.dsmg11.nexstock.data.local.toDomain
 import com.dsmg11.nexstock.data.local.toEntity
 import com.dsmg11.nexstock.data.sync.ProductSyncWorker
@@ -31,6 +32,7 @@ class ProductRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val firestore: FirebaseFirestore,
     private val productDao: ProductDao,
+    private val receptionDao: ReceptionDao,
     private val masterData: MasterDataRepository
 ) : ProductRepository {
 
@@ -55,10 +57,27 @@ class ProductRepositoryImpl @Inject constructor(
                 .map { list -> list.map { it.toDomain() } }
                 .collect { send(it) }
         }
-        return combine(local, lineNames) { list, names ->
-            list.map { it.copy(line = it.line.withName(names)) }
+        return combine(local, lineNames, pendingReceived()) { list, names, pending ->
+            list.map { product ->
+                product.copy(
+                    line = product.line.withName(names),
+                    // MOV-50/51: lo recibido sin conexión ya cuenta en el stock que se muestra
+                    stock = product.stock + (pending[product.code] ?: 0)
+                )
+            }
         }
     }
+
+    // Unidades recibidas por producto en recepciones que aún no se suben a Firestore.
+    // Cuando ReceptionSyncWorker las sube, Firestore trae el stock ya sumado y esto vuelve a 0.
+    private fun pendingReceived(): Flow<Map<String, Int>> =
+        receptionDao.observePending()
+            .map { list ->
+                list.flatMap { it.toDomain().items }
+                    .groupBy { it.code }
+                    .mapValues { (_, items) -> items.sumOf { it.received } }
+            }
+            .onStart { emit(emptyMap()) }
 
     override fun observeProduct(code: String): Flow<Product?> =
         combine(productDao.observeByCode(code), lineNames) { entity, names ->

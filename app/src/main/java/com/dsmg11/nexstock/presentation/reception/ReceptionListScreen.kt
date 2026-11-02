@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -73,6 +74,26 @@ fun ReceptionListScreen(
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
         )
+
+        // MOV-51: lo registrado sin internet espera aquí hasta que vuelva la conexión
+        if (uiState.pendingSyncCount > 0) {
+            Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = contentColorFor(MaterialTheme.colorScheme.tertiaryContainer),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(12.dp)) {
+                    Icon(Icons.Filled.CloudUpload, contentDescription = null)
+                    Text(
+                        if (uiState.pendingSyncCount == 1) "1 recepción pendiente de sincronizar. Se subirá sola al volver la conexión."
+                        else "${uiState.pendingSyncCount} recepciones pendientes de sincronizar. Se subirán solas al volver la conexión.",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 12.dp)
+                    )
+                }
+            }
+        }
 
         when {
             uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
