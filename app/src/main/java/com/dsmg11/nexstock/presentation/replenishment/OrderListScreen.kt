@@ -4,21 +4,27 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,15 +45,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsmg11.nexstock.domain.model.OrderStatus
 import com.dsmg11.nexstock.domain.model.PurchaseOrder
 import com.dsmg11.nexstock.domain.usecase.replenishment.OrderPermissions
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.Checkbox
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -75,67 +79,93 @@ fun OrderListScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
-            }
-            Text("Órdenes de compra", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = onPendingReport) {
-                Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Órdenes pendientes")
-            }
-            IconButton(onClick = onSchedule) {
-                Icon(Icons.Filled.DateRange, contentDescription = "Cronograma")
-            }
-            Button(onClick = onNewRequest) { Text("Nueva solicitud") }
-        }
-
-        if (OrderPermissions.canConsolidate(uiState.profile) && uiState.selectedIds.isNotEmpty()) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            ) {
-                Text(
-                    "${uiState.selectedIds.size} seleccionadas",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = viewModel::onClearSelection) { Text("Limpiar") }
-                Button(
-                    onClick = { showConsolidate = true },
-                    enabled = uiState.canConsolidate
-                ) { Text("Consolidar") }
-            }
-        }
-        when {
-            uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            uiState.error != null -> CenteredMessage(uiState.error!!)
-            uiState.orders.isEmpty() -> CenteredMessage("Aún no hay órdenes de compra")
-            else -> LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                items(uiState.orders, key = { it.id }) { order ->
-                    OrderCard(
-                        order = order,
-                        expanded = expandedId == order.id,
-                        transitions = OrderPermissions.availableTransitions(uiState.profile, order),
-                        isUpdating = uiState.updatingId == order.id,
-                        showCheckbox = OrderPermissions.canConsolidate(uiState.profile) &&
-                                OrderPermissions.isConsolidable(order),
-                        checked = order.id in uiState.selectedIds,
-                        checkEnabled = uiState.selectedSupplierRuc == null ||
-                                uiState.selectedSupplierRuc == order.supplierRuc,
-                        onCheckedChange = { viewModel.onToggleSelect(order) },
-                        onToggle = { expandedId = if (expandedId == order.id) null else order.id },
-                        onTransition = { next -> pending = order to next }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            // Encabezado: el título se recorta con "…" si no entra, así los íconos nunca se salen
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Órdenes de compra",
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    if (!uiState.isLoading) {
+                        Text(
+                            orderCountLabel(uiState.orders.size),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                IconButton(onClick = onPendingReport) {
+                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Reporte de órdenes pendientes")
+                }
+                IconButton(onClick = onSchedule) {
+                    Icon(Icons.Filled.DateRange, contentDescription = "Cronograma")
+                }
+            }
+
+            if (OrderPermissions.canConsolidate(uiState.profile) && uiState.selectedIds.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                ) {
+                    Text(
+                        "${uiState.selectedIds.size} seleccionadas",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = viewModel::onClearSelection) { Text("Limpiar") }
+                    Button(
+                        onClick = { showConsolidate = true },
+                        enabled = uiState.canConsolidate
+                    ) { Text("Consolidar") }
+                }
+            }
+            when {
+                uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                uiState.error != null -> CenteredMessage(uiState.error!!)
+                uiState.orders.isEmpty() -> CenteredMessage(
+                    "Aún no hay órdenes de compra.\nToca \"Nueva solicitud\" para crear la primera."
+                )
+                else -> LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    // Espacio abajo para que el botón flotante no tape la última orden
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp)
+                ) {
+                    items(uiState.orders, key = { it.id }) { order ->
+                        OrderCard(
+                            order = order,
+                            expanded = expandedId == order.id,
+                            transitions = OrderPermissions.availableTransitions(uiState.profile, order),
+                            isUpdating = uiState.updatingId == order.id,
+                            showCheckbox = OrderPermissions.canConsolidate(uiState.profile) &&
+                                    OrderPermissions.isConsolidable(order),
+                            checked = order.id in uiState.selectedIds,
+                            checkEnabled = uiState.selectedSupplierRuc == null ||
+                                    uiState.selectedSupplierRuc == order.supplierRuc,
+                            onCheckedChange = { viewModel.onToggleSelect(order) },
+                            onToggle = { expandedId = if (expandedId == order.id) null else order.id },
+                            onTransition = { next -> pending = order to next }
+                        )
+                    }
                 }
             }
         }
+
+        // Nueva solicitud como botón flotante: siempre visible, en cualquier ancho de pantalla
+        ExtendedFloatingActionButton(
+            onClick = onNewRequest,
+            icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+            text = { Text("Nueva solicitud") },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+        )
     }
 
     pending?.let { (order, next) ->
@@ -197,25 +227,45 @@ private fun OrderCard(
     onCheckedChange: () -> Unit,
     onToggle: () -> Unit,
     onTransition: (OrderStatus) -> Unit
-){
+) {
     OutlinedCard(onClick = onToggle, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.Top) {
                 if (showCheckbox) {
                     Checkbox(checked = checked, onCheckedChange = { onCheckedChange() }, enabled = checkEnabled)
                 }
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    // Fila 1: número de orden y estado
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            shortId(order),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatusChip(order.status)
+                    }
+                    // Fila 2: proveedor (hasta dos líneas)
                     Text(
-                        "${shortId(order)} · ${order.supplierName}",
-                        style = MaterialTheme.typography.titleMedium
+                        order.supplierName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                        "Entrega máxima: ${formatDate(order.deliveryDate)} · ${order.items.size} productos",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // Fila 3: fecha y cantidad de productos, con la flecha para desplegar
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Entrega máx. ${formatDate(order.deliveryDate)} · ${order.items.size} productos",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (expanded) "Ocultar detalle" else "Ver detalle",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                StatusChip(order.status)
             }
 
             if (expanded) {
@@ -252,22 +302,27 @@ private fun OrderCard(
                 }
 
                 if (transitions.isNotEmpty()) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        transitions.forEach { next ->
-                            if (next == OrderStatus.CANCELADA) {
-                                OutlinedButton(
-                                    onClick = { onTransition(next) },
-                                    enabled = !isUpdating,
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.error
-                                    )
-                                ) { Text("Cancelar orden") }
-                            } else {
-                                Button(onClick = { onTransition(next) }, enabled = !isUpdating) {
-                                    Text(actionLabel(next))
-                                }
-                            }
+                    // Botones uno debajo del otro y a lo ancho: entran en cualquier pantalla
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                    ) {
+                        transitions.filter { it != OrderStatus.CANCELADA }.forEach { next ->
+                            Button(
+                                onClick = { onTransition(next) },
+                                enabled = !isUpdating,
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(actionLabel(next)) }
+                        }
+                        if (OrderStatus.CANCELADA in transitions) {
+                            OutlinedButton(
+                                onClick = { onTransition(OrderStatus.CANCELADA) },
+                                enabled = !isUpdating,
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Cancelar orden") }
                         }
                     }
                 } else if (order.status.isFinal) {
@@ -293,14 +348,22 @@ private fun StatusChip(status: OrderStatus) {
     Surface(
         color = container,
         contentColor = contentColorFor(container),
-        shape = RoundedCornerShape(50)
+        shape = RoundedCornerShape(50),
+        modifier = Modifier.padding(start = 8.dp)
     ) {
         Text(
             status.displayName,
             style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
     }
+}
+
+private fun orderCountLabel(count: Int): String = when (count) {
+    0 -> "Sin órdenes"
+    1 -> "1 orden"
+    else -> "$count órdenes"
 }
 
 // Texto del botón según el estado de destino
