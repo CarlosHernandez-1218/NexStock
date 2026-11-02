@@ -28,6 +28,7 @@ import com.dsmg11.nexstock.presentation.replenishment.ReplenishmentScreen
 import com.dsmg11.nexstock.presentation.replenishment.OrderListScreen
 import com.dsmg11.nexstock.presentation.replenishment.OrderScheduleScreen
 import com.dsmg11.nexstock.presentation.reception.ReceptionListScreen
+import com.dsmg11.nexstock.presentation.reception.ReceptionRegisterScreen
 import com.dsmg11.nexstock.presentation.replenishment.PendingOrdersScreen
 
 @Composable
@@ -150,14 +151,18 @@ fun NexStockNavHost(
             PendingOrdersScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.Reception.route) {
-            val context = LocalContext.current
             ReceptionListScreen(
                 onBack = { navController.popBackStack() },
-                // MOV-48/49: aquí se abrirá el registro de la recepción de esa orden
-                onSelectOrder = {
-                    Toast.makeText(context, "Registro de recepción: siguiente paso", Toast.LENGTH_SHORT).show()
+                onSelectOrder = { orderId ->
+                    navController.navigate(Screen.ReceptionRegister.createRoute(orderId))
                 }
             )
+        }
+        composable(
+            route = Screen.ReceptionRegister.route,
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+        ) {
+            ReceptionRegisterScreen(onBack = { navController.popBackStack() })
         }
     }
 }
