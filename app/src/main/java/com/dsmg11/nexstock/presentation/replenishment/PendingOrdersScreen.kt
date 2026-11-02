@@ -23,6 +23,7 @@ import com.dsmg11.nexstock.domain.model.deadlineStatus
 import com.dsmg11.nexstock.domain.model.deadlineText
 import com.dsmg11.nexstock.ui.theme.StockAgotado
 import com.dsmg11.nexstock.ui.theme.StockBajo
+import com.dsmg11.nexstock.domain.model.receivedPercent
 
 @Composable
 fun PendingOrdersScreen(
@@ -93,10 +94,24 @@ private fun PendingOrderCard(order: PurchaseOrder) {
                     }
                 }
             }
-            Text(
-                order.status.displayName,
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(top = 4.dp)
+            val percent = order.receivedPercent
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                Text(
+                    order.status.displayName,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    "$percent% recibido",
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+            LinearProgressIndicator(
+                progress = { percent / 100f },
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
             )
         }
     }
