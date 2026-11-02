@@ -15,6 +15,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dsmg11.nexstock.domain.model.PurchaseOrder
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import com.dsmg11.nexstock.domain.model.DeadlineStatus
+import com.dsmg11.nexstock.domain.model.deadlineStatus
+import com.dsmg11.nexstock.domain.model.deadlineText
+import com.dsmg11.nexstock.ui.theme.StockAgotado
+import com.dsmg11.nexstock.ui.theme.StockBajo
 
 @Composable
 fun PendingOrdersScreen(
@@ -48,17 +56,43 @@ fun PendingOrdersScreen(
 
 @Composable
 private fun PendingOrderCard(order: PurchaseOrder) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    val deadline = order.deadlineStatus()
+    // El borde y la etiqueta toman el color del estado de vencimiento
+    val accent: Color? = when (deadline) {
+        DeadlineStatus.VENCIDA -> StockAgotado
+        DeadlineStatus.POR_VENCER -> StockBajo
+        DeadlineStatus.EN_PLAZO -> null
+    }
+
+    OutlinedCard(
+        border = if (accent != null) BorderStroke(2.dp, accent) else CardDefaults.outlinedCardBorder(),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                "${shortId(order)} · ${order.supplierName}",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                "Entrega máxima: ${formatDate(order.deliveryDate)} · ${order.items.size} productos",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "${shortId(order)} · ${order.supplierName}",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        "Entrega máxima: ${formatDate(order.deliveryDate)} · ${order.items.size} productos",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (accent != null) {
+                    // El ámbar necesita texto oscuro para leerse bien (igual que en StockBadge)
+                    val textColor = if (deadline == DeadlineStatus.POR_VENCER) Color.Black else Color.White
+                    Surface(color = accent, contentColor = textColor, shape = RoundedCornerShape(50)) {
+                        Text(
+                            order.deadlineText(),
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
             Text(
                 order.status.displayName,
                 style = MaterialTheme.typography.labelMedium,
