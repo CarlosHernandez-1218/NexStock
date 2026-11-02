@@ -27,6 +27,7 @@ import com.dsmg11.nexstock.presentation.suppliers.SupplierScreen
 import com.dsmg11.nexstock.presentation.replenishment.ReplenishmentScreen
 import com.dsmg11.nexstock.presentation.replenishment.OrderListScreen
 import com.dsmg11.nexstock.presentation.replenishment.OrderScheduleScreen
+import com.dsmg11.nexstock.presentation.reception.ReceptionListScreen
 import com.dsmg11.nexstock.presentation.replenishment.PendingOrdersScreen
 
 @Composable
@@ -76,6 +77,7 @@ fun NexStockNavHost(
                         AppFeature.MAESTROS -> navController.navigate(Screen.MasterData.route)
                         AppFeature.PROVEEDORES -> navController.navigate(Screen.Suppliers.route)
                         AppFeature.ORDENES_COMPRA -> navController.navigate(Screen.Orders.route)
+                        AppFeature.RECEPCION -> navController.navigate(Screen.Reception.route)
                         else -> Toast.makeText(
                             context,
                             "${feature.title}: disponible en el Sprint ${feature.sprint}",
@@ -143,6 +145,19 @@ fun NexStockNavHost(
         }
         composable(Screen.Schedule.route) {
             OrderScheduleScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Screen.PendingReport.route) {
+            PendingOrdersScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Screen.Reception.route) {
+            val context = LocalContext.current
+            ReceptionListScreen(
+                onBack = { navController.popBackStack() },
+                // MOV-48/49: aquí se abrirá el registro de la recepción de esa orden
+                onSelectOrder = {
+                    Toast.makeText(context, "Registro de recepción: siguiente paso", Toast.LENGTH_SHORT).show()
+                }
+            )
         }
     }
 }
