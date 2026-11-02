@@ -34,3 +34,7 @@ val PurchaseOrder.receivedPercent: Int
         val got = items.sumOf { minOf(it.quantity, received[it.code] ?: 0) }
         return got * 100 / ordered
     }
+
+// HU07: solo se reciben órdenes Enviadas o Parcialmente recibidas
+val PurchaseOrder.isPendingReception: Boolean
+    get() = status == OrderStatus.ENVIADA || status == OrderStatus.PARCIALMENTE_RECIBIDA
