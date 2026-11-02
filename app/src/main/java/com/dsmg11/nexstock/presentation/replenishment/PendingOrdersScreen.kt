@@ -24,6 +24,15 @@ import com.dsmg11.nexstock.domain.model.deadlineText
 import com.dsmg11.nexstock.ui.theme.StockAgotado
 import com.dsmg11.nexstock.ui.theme.StockBajo
 import com.dsmg11.nexstock.domain.model.receivedPercent
+import android.widget.Toast
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import com.dsmg11.nexstock.domain.model.todayUtcMillis
+import com.dsmg11.nexstock.domain.usecase.replenishment.PendingOrdersReport
 
 @Composable
 fun PendingOrdersScreen(
@@ -31,6 +40,15 @@ fun PendingOrdersScreen(
     viewModel: PendingOrdersViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var extending by remember { mutableStateOf<PurchaseOrder?>(null) }
+
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.onMessageShown()
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -49,14 +67,30 @@ fun PendingOrdersScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 8.dp)
             ) {
-                items(uiState.orders, key = { it.id }) { order -> PendingOrderCard(order) }
+                items(uiState.orders, key = { it.id }) { order ->
+                    PendingOrderCard(
+                        order = order,
+                        canExtend = PendingOrdersReport.canExtend(uiState.profile, order),
+                        onExtend = { extending = order }
+                    )
+                }
             }
         }
+    }
+    extending?.let { order ->
+        ExtendDialog(
+            order = order,
+            onDismiss = { extending = null },
+            onConfirm = { date, reason ->
+                viewModel.onExtend(order, date, reason)
+                extending = null
+            }
+        )
     }
 }
 
 @Composable
-private fun PendingOrderCard(order: PurchaseOrder) {
+private fun PendingOrderCard(order: PurchaseOrder, canExtend: Boolean, onExtend: () -> Unit) {
     val deadline = order.deadlineStatus()
     // El borde y la etiqueta toman el color del estado de vencimiento
     val accent: Color? = when (deadline) {
@@ -113,6 +147,92 @@ private fun PendingOrderCard(order: PurchaseOrder) {
                 progress = { percent / 100f },
                 modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
             )
+        }
+        if (canExtend) {
+            TextButton(onClick = onExtend, modifier = Modifier.padding(top = 4.dp)) {
+                Text("Registrar prórroga")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExtendDialog(
+    order: PurchaseOrder,
+    onDismiss: () -> Unit,
+    onConfirm: (Long, String) -> Unit
+) {
+    var date by remember { mutableStateOf<Long?>(null) }
+    var reason by remember { mutableStateOf("") }
+    var showPicker by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Prórroga · ${shortId(order)}") },
+        text = {
+            Column {
+                Text(
+                    "Fecha actual: ${formatDate(order.deliveryDate)}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    "Nueva fecha máxima",
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                )
+                OutlinedCard(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp)
+                    ) {
+                        Text(
+                            date?.let { formatDate(it) } ?: "Selecciona una fecha",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(Icons.Filled.DateRange, contentDescription = null)
+                    }
+                }
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = { Text("Motivo") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { date?.let { onConfirm(it, reason) } },
+                enabled = date != null && reason.isNotBlank()
+            ) { Text("Registrar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
+
+    if (showPicker) {
+        val today = todayUtcMillis()
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = date ?: order.deliveryDate,
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis >= today
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        date = pickerState.selectedDateMillis
+                        showPicker = false
+                    },
+                    enabled = pickerState.selectedDateMillis != null
+                ) { Text("Aceptar") }
+            },
+            dismissButton = { TextButton(onClick = { showPicker = false }) { Text("Cancelar") } }
+        ) {
+            DatePicker(state = pickerState)
         }
     }
 }

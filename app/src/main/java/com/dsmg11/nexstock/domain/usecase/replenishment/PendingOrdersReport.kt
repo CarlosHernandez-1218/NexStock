@@ -25,4 +25,10 @@ object PendingOrdersReport {
         }
         return visible.sortedBy { it.deliveryDate }
     }
+
+    fun canExtend(profile: UserProfile?, order: PurchaseOrder): Boolean {
+        if (profile == null || profile.role != UserRole.JEFE_LINEA || !isPending(order)) return false
+        val lines = profile.assignedLines.map { it.name }.toSet()
+        return order.items.any { it.line in lines }
+    }
 }

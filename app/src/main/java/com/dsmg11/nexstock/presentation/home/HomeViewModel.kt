@@ -11,6 +11,10 @@ import com.dsmg11.nexstock.domain.usecase.catalog.CheckStockAlertsUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.ObserveProductsUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.GetAvailableFeaturesUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.ObserveUserProfileUseCase
+import com.dsmg11.nexstock.domain.model.UserRole
+import com.dsmg11.nexstock.domain.usecase.replenishment.WatchExtensionAlertsUseCase
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +34,7 @@ class HomeViewModel @Inject constructor(
     getAvailableFeatures: GetAvailableFeaturesUseCase,
     observeProducts: ObserveProductsUseCase,
     private val checkStockAlerts: CheckStockAlertsUseCase,
+    private val watchExtensionAlerts: WatchExtensionAlertsUseCase,
     private val signOutUseCase: SignOutUseCase
 ) : ViewModel() {
 
@@ -55,6 +60,14 @@ class HomeViewModel @Inject constructor(
             }
                 .catch { }
                 .collect { visible -> checkStockAlerts(visible) }
+        }
+        // MOV-45: el Administrador recibe aviso cuando un Jefe de Línea registra una prórroga
+        viewModelScope.launch {
+            profile.filterNotNull().map { it.role }.distinctUntilChanged().collectLatest { role ->
+                if (role == UserRole.ADMINISTRADOR) {
+                    watchExtensionAlerts().catch { }.collect { }
+                }
+            }
         }
     }
 
