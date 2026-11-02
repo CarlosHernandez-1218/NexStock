@@ -8,6 +8,7 @@ import com.dsmg11.nexstock.domain.model.isPendingReception
 import com.dsmg11.nexstock.domain.model.pendingOf
 import com.dsmg11.nexstock.domain.usecase.reception.FindProductCodeByBarcodeUseCase
 import com.dsmg11.nexstock.domain.usecase.reception.ObserveOrderUseCase
+import com.dsmg11.nexstock.domain.usecase.reception.RegisterReceptionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +26,8 @@ data class ReceptionRegisterUiState(
     val highlightedCode: String? = null,            // último producto escaneado
     val scanCount: Int = 0,                         // sube en cada escaneo válido (para desplazar la lista)
     val message: String? = null,
-    val isSaving: Boolean = false
+    val isSaving: Boolean = false,
+    val saved: Boolean = false                      // true al guardar: la pantalla se cierra
 ) {
     val totalUnits: Int get() = quantities.values.sum()
     val canReview: Boolean get() = totalUnits > 0 && !isSaving && order?.isPendingReception == true
@@ -42,7 +44,8 @@ data class ReceptionRegisterUiState(
 class ReceptionRegisterViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     observeOrder: ObserveOrderUseCase,
-    private val findProductCode: FindProductCodeByBarcodeUseCase
+    private val findProductCode: FindProductCodeByBarcodeUseCase,
+    private val registerReception: RegisterReceptionUseCase
 ) : ViewModel() {
 
     private val orderId: String = checkNotNull(savedStateHandle["orderId"])
@@ -129,8 +132,31 @@ class ReceptionRegisterViewModel @Inject constructor(
         }
     }
 
-    // MOV-50: aquí se guardará la recepción (siguiente paso)
-    fun onSave() = showMessage("El guardado de la recepción se agrega en el siguiente paso (MOV-50)")
+    // MOV-50: guarda la recepción; el stock y la orden se actualizan al instante en el celular
+    fun onSave() {
+        val state = _uiState.value
+        val order = state.order ?: return
+        if (!state.canReview) return
+        _uiState.update { it.copy(isSaving = true) }
+        viewModelScope.launch {
+            registerReception(order, state.quantities)
+                .onSuccess { reception ->
+                    val units = reception.items.sumOf { it.received }
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            saved = true,
+                            message = "Recepción registrada: $units unidades. Se sincroniza automáticamente."
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(isSaving = false, message = e.message ?: "No se pudo registrar la recepción")
+                    }
+                }
+        }
+    }
 
     fun onMessageShown() = _uiState.update { it.copy(message = null) }
 

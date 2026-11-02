@@ -80,6 +80,11 @@ fun ReceptionRegisterScreen(
         }
     }
 
+    // Al guardar, vuelve a la lista de órdenes por recibir
+    LaunchedEffect(uiState.saved) {
+        if (uiState.saved) onBack()
+    }
+
     // Después de cada escaneo la lista se desplaza hasta el producto leído
     LaunchedEffect(uiState.scanCount) {
         val order = uiState.order ?: return@LaunchedEffect
@@ -165,8 +170,11 @@ fun ReceptionRegisterScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        if (uiState.totalUnits == 0) "Ingresa al menos una cantidad"
-                        else "Revisar recepción (${uiState.totalUnits} unid.)"
+                        when {
+                            uiState.isSaving -> "Guardando…"
+                            uiState.totalUnits == 0 -> "Ingresa al menos una cantidad"
+                            else -> "Revisar recepción (${uiState.totalUnits} unid.)"
+                        }
                     )
                 }
             }

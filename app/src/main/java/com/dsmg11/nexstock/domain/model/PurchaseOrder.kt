@@ -38,3 +38,19 @@ val PurchaseOrder.receivedPercent: Int
 // HU07: solo se reciben órdenes Enviadas o Parcialmente recibidas
 val PurchaseOrder.isPendingReception: Boolean
     get() = status == OrderStatus.ENVIADA || status == OrderStatus.PARCIALMENTE_RECIBIDA
+
+// MOV-51: suma a la orden lo recibido en recepciones guardadas en el celular que aún no se suben.
+// Así, aun sin internet, la app muestra lo que falta y el estado reales.
+fun PurchaseOrder.withLocalReceptions(receptions: List<Reception>): PurchaseOrder {
+    val mine = receptions.filter { it.orderId == id }
+    if (mine.isEmpty()) return this
+    val merged = received.toMutableMap()
+    mine.flatMap { it.items }.forEach { merged[it.code] = (merged[it.code] ?: 0) + it.received }
+    val complete = items.all { (merged[it.code] ?: 0) >= it.quantity }
+    val newStatus = when {
+        !isPendingReception -> status
+        complete -> OrderStatus.RECIBIDA
+        else -> OrderStatus.PARCIALMENTE_RECIBIDA
+    }
+    return copy(received = merged, status = newStatus)
+}
