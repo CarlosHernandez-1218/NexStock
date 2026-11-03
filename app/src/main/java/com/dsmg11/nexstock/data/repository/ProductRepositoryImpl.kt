@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class ProductRepositoryImpl @Inject constructor(
@@ -93,6 +94,12 @@ class ProductRepositoryImpl @Inject constructor(
         val stamped = product.copy(updatedAt = System.currentTimeMillis(), pendingSync = true)
         productDao.upsert(stamped.toEntity())   // 1. Se guarda al instante en Room
         ProductSyncWorker.enqueue(context)      // 2. WorkManager lo sube cuando haya internet
+    }
+
+    override suspend fun refreshFromRemote(): Result<Unit> = runCatching {
+        val snapshot = products.get().await()
+        val remote = snapshot.documents.mapNotNull { it.toProduct() }
+        productDao.upsertFromRemote(remote.map { it.toEntity() })
     }
 
     private fun remoteProducts(): Flow<List<Product>> = callbackFlow {

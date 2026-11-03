@@ -3,6 +3,7 @@ package com.dsmg11.nexstock
 import android.app.Application
 import com.dsmg11.nexstock.data.sync.ProductSyncWorker
 import com.dsmg11.nexstock.data.sync.ReceptionSyncWorker
+import com.dsmg11.nexstock.data.sync.StockReviewWorker
 import com.dsmg11.nexstock.data.sync.PendingOrdersReminderWorker
 import dagger.hilt.android.HiltAndroidApp
 
@@ -14,5 +15,6 @@ class NexStockApp : Application() {
         ProductSyncWorker.enqueue(this)
         ReceptionSyncWorker.enqueue(this)
         PendingOrdersReminderWorker.schedule(this)
+        StockReviewWorker.schedule(this)   // MOV-69: revisión de stock cada 6 horas
     }
 }

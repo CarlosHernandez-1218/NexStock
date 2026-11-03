@@ -10,4 +10,6 @@ interface ProductRepository {
     //código del otro producto que ya usa ese código de barras (null si está libre)
     suspend fun findBarcodeOwner(barcode: String, exceptCode: String): String?
     suspend fun saveProduct(product: Product): Result<Unit>
+    // MOV-69: trae una vez los productos de Firestore a Room (sin dejar un listener abierto)
+    suspend fun refreshFromRemote(): Result<Unit>
 }
