@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -130,6 +131,26 @@ fun DashboardScreen(
                         onClick = null
                     )
                 }
+
+                SectionTitle("Gráficos")
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ChartCard(
+                        title = "Órdenes por estado",
+                        subtitle = "Todas las órdenes de compra registradas"
+                    ) { OrdersByStatusChart(summary.ordersByStatus) }
+
+                    val weekTotal = summary.receptionsByDay.sumOf { it.count }
+                    ChartCard(
+                        title = "Recepciones de los últimos 7 días",
+                        subtitle = if (weekTotal == 1) "1 recepción esta semana" else "$weekTotal recepciones esta semana"
+                    ) { ReceptionsByDayChart(summary.receptionsByDay) }
+
+                    ChartCard(
+                        title = "Productos por nivel de rotación",
+                        subtitle = "Productos activos según su rotación"
+                    ) { ProductsByRotationChart(summary.productsByRotation) }
+                }
+                Spacer(Modifier.height(16.dp))
             }
         }
     }

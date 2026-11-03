@@ -109,6 +109,8 @@ dependencies {
     implementation(libs.googleid)
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.gson)
+    // HU10: gráficos del dashboard (torta y barras)
+    implementation(libs.tehras.charts)
     //  escáner de códigos de barras (Google Play services)
     implementation(libs.play.services.code.scanner)
 }

@@ -21,9 +21,22 @@ class DashboardRepositoryImpl @Inject constructor(
         awaitClose { registration.remove() }
     }
 
+    override fun observeReceptionTimesSince(fromMillis: Long): Flow<List<Long>> = callbackFlow {
+        val registration = firestore.collection(RECEPTIONS)
+            .whereGreaterThanOrEqualTo("receivedAt", fromMillis)
+            .addSnapshotListener { snapshot, error ->
+                val times = if (error != null) emptyList()
+                else snapshot?.documents?.mapNotNull { it.getLong("receivedAt") }.orEmpty()
+                trySend(times)
+            }
+        awaitClose { registration.remove() }
+    }
+
     private companion object {
         // Acordado con Carlos para la HU09
         const val RETURNS = "devoluciones"
         const val PENDING_PICKUP = "PENDIENTE_RECOJO"
+        // HU07
+        const val RECEPTIONS = "recepciones"
     }
 }
