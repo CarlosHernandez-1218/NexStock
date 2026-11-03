@@ -27,6 +27,7 @@ import com.dsmg11.nexstock.presentation.suppliers.SupplierScreen
 import com.dsmg11.nexstock.presentation.replenishment.ReplenishmentScreen
 import com.dsmg11.nexstock.presentation.replenishment.OrderListScreen
 import com.dsmg11.nexstock.presentation.replenishment.OrderScheduleScreen
+import com.dsmg11.nexstock.presentation.dashboard.DashboardScreen
 import com.dsmg11.nexstock.presentation.reception.ReceptionListScreen
 import com.dsmg11.nexstock.presentation.reception.ReceptionRegisterScreen
 import com.dsmg11.nexstock.presentation.replenishment.PendingOrdersScreen
@@ -79,6 +80,7 @@ fun NexStockNavHost(
                         AppFeature.PROVEEDORES -> navController.navigate(Screen.Suppliers.route)
                         AppFeature.ORDENES_COMPRA -> navController.navigate(Screen.Orders.route)
                         AppFeature.RECEPCION -> navController.navigate(Screen.Reception.route)
+                        AppFeature.DASHBOARD -> navController.navigate(Screen.Dashboard.route)
                         else -> Toast.makeText(
                             context,
                             "${feature.title}: disponible en el Sprint ${feature.sprint}",
@@ -163,6 +165,13 @@ fun NexStockNavHost(
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
         ) {
             ReceptionRegisterScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Screen.Dashboard.route) {
+            DashboardScreen(
+                onBack = { navController.popBackStack() },
+                onOpenStock = { navController.navigate(Screen.Stock.route) },
+                onOpenPendingOrders = { navController.navigate(Screen.PendingReport.route) }
+            )
         }
     }
 }

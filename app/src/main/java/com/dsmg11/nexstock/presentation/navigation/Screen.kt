@@ -24,4 +24,5 @@ sealed class Screen(val route: String) {
         fun createRoute(orderId: String) = "reception_register/$orderId"
     }
     data object PendingReport : Screen("pending_report")
+    data object Dashboard : Screen("dashboard")
 }
