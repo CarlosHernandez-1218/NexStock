@@ -21,3 +21,7 @@ app/google-services.json
 *.keystore
 # Caché del compilador de Kotlin
 .kotlin/
+# Cloud Functions (MOV-70): dependencias y logs de Firebase CLI
+functions/node_modules/
+firebase-debug.log
+.firebase/
