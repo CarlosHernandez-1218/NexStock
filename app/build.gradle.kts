@@ -98,6 +98,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     // Foto de perfil
     implementation(libs.firebase.storage)
+    // HU10 - MOV-70: notificaciones push (FCM)
+    implementation(libs.firebase.messaging)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.exifinterface)

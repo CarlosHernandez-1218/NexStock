@@ -1,6 +1,7 @@
 package com.dsmg11.nexstock
 
 import android.app.Application
+import com.dsmg11.nexstock.data.notification.LogisticAlertsNotifier
 import com.dsmg11.nexstock.data.sync.ProductSyncWorker
 import com.dsmg11.nexstock.data.sync.ReceptionSyncWorker
 import com.dsmg11.nexstock.data.sync.StockReviewWorker
@@ -16,5 +17,6 @@ class NexStockApp : Application() {
         ReceptionSyncWorker.enqueue(this)
         PendingOrdersReminderWorker.schedule(this)
         StockReviewWorker.schedule(this)   // MOV-69: revisión de stock cada 6 horas
+        LogisticAlertsNotifier.createChannel(this)   // MOV-70: canal de los push
     }
 }

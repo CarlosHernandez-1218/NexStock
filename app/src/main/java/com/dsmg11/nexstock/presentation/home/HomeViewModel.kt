@@ -9,6 +9,7 @@ import com.dsmg11.nexstock.domain.usecase.SignOutUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.CatalogPermissions
 import com.dsmg11.nexstock.domain.usecase.catalog.CheckStockAlertsUseCase
 import com.dsmg11.nexstock.domain.usecase.catalog.ObserveProductsUseCase
+import com.dsmg11.nexstock.domain.usecase.dashboard.SyncAdminAlertsUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.GetAvailableFeaturesUseCase
 import com.dsmg11.nexstock.domain.usecase.profile.ObserveUserProfileUseCase
 import com.dsmg11.nexstock.domain.model.UserRole
@@ -35,7 +36,8 @@ class HomeViewModel @Inject constructor(
     observeProducts: ObserveProductsUseCase,
     private val checkStockAlerts: CheckStockAlertsUseCase,
     private val watchExtensionAlerts: WatchExtensionAlertsUseCase,
-    private val signOutUseCase: SignOutUseCase
+    private val signOutUseCase: SignOutUseCase,
+    private val syncAdminAlerts: SyncAdminAlertsUseCase
 ) : ViewModel() {
 
     private val currentUser = getCurrentUser()
@@ -64,6 +66,8 @@ class HomeViewModel @Inject constructor(
         // MOV-45: el Administrador recibe aviso cuando un Jefe de Línea registra una prórroga
         viewModelScope.launch {
             profile.filterNotNull().map { it.role }.distinctUntilChanged().collectLatest { role ->
+                // MOV-70: el Administrador se suscribe al push diario; los demás roles se dan de baja
+                syncAdminAlerts(role)
                 if (role == UserRole.ADMINISTRADOR) {
                     watchExtensionAlerts().catch { }.collect { }
                 }
@@ -71,5 +75,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun signOut() = signOutUseCase()
+    fun signOut() {
+        syncAdminAlerts(null)   // al cerrar sesión deja de recibir el push en este celular
+        signOutUseCase()
+    }
 }
