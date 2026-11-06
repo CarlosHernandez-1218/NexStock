@@ -7,6 +7,7 @@ const { logger } = require("firebase-functions");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
+Object.assign(exports, require("./devoluciones"));   // HU09: push de devolución autorizada
 const db = admin.firestore();
 
 const ADMINS_TOPIC = "admins";          // la app suscribe aquí a los Administradores

@@ -6,6 +6,7 @@ import com.dsmg11.nexstock.domain.model.SupplierReturn
 import com.dsmg11.nexstock.domain.model.UserProfile
 import com.dsmg11.nexstock.domain.model.UserRole
 import com.dsmg11.nexstock.domain.usecase.catalog.CatalogPermissions
+import com.dsmg11.nexstock.domain.model.ReturnStatus
 
 object ReturnPermissions {
 
@@ -33,4 +34,10 @@ object ReturnPermissions {
             }
             else -> emptyList()
         }
+
+    // Solo el Jefe de Línea de esa línea autoriza, y solo una devolución recién registrada
+    fun canAuthorize(profile: UserProfile?, item: SupplierReturn): Boolean =
+        profile?.role == UserRole.JEFE_LINEA &&
+                item.status == ReturnStatus.REGISTRADA &&
+                profile?.assignedLines.orEmpty().any { it.name == item.line }
 }
