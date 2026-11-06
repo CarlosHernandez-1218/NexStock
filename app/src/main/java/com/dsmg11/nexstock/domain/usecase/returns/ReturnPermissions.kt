@@ -40,4 +40,10 @@ object ReturnPermissions {
         profile?.role == UserRole.JEFE_LINEA &&
                 item.status == ReturnStatus.REGISTRADA &&
                 profile?.assignedLines.orEmpty().any { it.name == item.line }
+
+    // Coordinar el recojo con el proveedor: Jefe de Línea de esa línea, con la devolución ya autorizada
+    fun canRequestPickup(profile: UserProfile?, item: SupplierReturn): Boolean =
+        profile?.role == UserRole.JEFE_LINEA &&
+                item.status == ReturnStatus.AUTORIZADA &&
+                profile?.assignedLines.orEmpty().any { it.name == item.line }
 }

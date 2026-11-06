@@ -3,6 +3,7 @@ package com.dsmg11.nexstock.presentation.returns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dsmg11.nexstock.domain.model.Product
+import com.dsmg11.nexstock.domain.model.ReturnStatus
 import com.dsmg11.nexstock.domain.model.ReturnType
 import com.dsmg11.nexstock.domain.model.Supplier
 import com.dsmg11.nexstock.domain.model.SupplierReturn
@@ -15,6 +16,7 @@ import com.dsmg11.nexstock.domain.usecase.returns.RegisterReturnUseCase
 import com.dsmg11.nexstock.domain.usecase.returns.ReturnPermissions
 import com.dsmg11.nexstock.domain.usecase.supplier.ObserveSuppliersUseCase
 import com.dsmg11.nexstock.domain.usecase.returns.AuthorizeReturnUseCase
+import com.dsmg11.nexstock.domain.usecase.returns.RequestPickupUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,9 +36,12 @@ data class ReturnListUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val isSaving: Boolean = false,
-    val message: String? = null
-)
-
+    val message: String? = null,
+    val statusFilter: ReturnStatus? = null
+){
+    val filteredReturns: List<SupplierReturn>
+        get() = statusFilter?.let { filter -> returns.filter { it.status == filter } } ?: returns
+}
 @HiltViewModel
 class ReturnListViewModel @Inject constructor(
     getCurrentUser: GetCurrentUserUseCase,
@@ -45,7 +50,8 @@ class ReturnListViewModel @Inject constructor(
     observeProducts: ObserveProductsUseCase,
     observeSuppliers: ObserveSuppliersUseCase,
     private val registerReturn: RegisterReturnUseCase,
-    private val authorizeReturn: AuthorizeReturnUseCase
+    private val authorizeReturn: AuthorizeReturnUseCase,
+    private val requestPickup: RequestPickupUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReturnListUiState())
@@ -74,9 +80,8 @@ class ReturnListViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = "No se pudieron cargar las devoluciones") }
                 }
                 .collect { fresh ->
-                    // Se conservan isSaving y message, que no vienen de los flujos
                     _uiState.update {
-                        fresh.copy(isSaving = it.isSaving, message = it.message)
+                        fresh.copy(isSaving = it.isSaving, message = it.message, statusFilter = it.statusFilter)
                     }
                 }
         }
@@ -124,4 +129,22 @@ class ReturnListViewModel @Inject constructor(
     }
 
     fun onMessageShown() = _uiState.update { it.copy(message = null) }
+
+    fun onFilterChange(status: ReturnStatus?) = _uiState.update { it.copy(statusFilter = status) }
+
+    fun onRequestPickup(item: SupplierReturn) {
+        if (_uiState.value.isSaving) return
+        _uiState.update { it.copy(isSaving = true) }
+        viewModelScope.launch {
+            requestPickup(_uiState.value.profile, item)
+                .onSuccess {
+                    _uiState.update { it.copy(isSaving = false, message = "Devolución pendiente de recojo") }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(isSaving = false, message = e.message ?: "No se pudo coordinar el recojo")
+                    }
+                }
+        }
+    }
 }

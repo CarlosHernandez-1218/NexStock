@@ -26,6 +26,9 @@ import com.dsmg11.nexstock.domain.usecase.returns.ReturnPermissions
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.ui.graphics.Color
+import com.dsmg11.nexstock.domain.model.ReturnStatus
 
 @Composable
 fun ReturnListScreen(
@@ -36,6 +39,7 @@ fun ReturnListScreen(
     val context = LocalContext.current
     var showForm by remember { mutableStateOf(false) }
     var authorizing by remember { mutableStateOf<SupplierReturn?>(null) }
+    var pickingUp by remember { mutableStateOf<SupplierReturn?>(null) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -56,21 +60,47 @@ fun ReturnListScreen(
             )
             Button(onClick = { showForm = true }) { Text("Nueva") }
         }
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(vertical = 4.dp)
+        ) {
+            item {
+                FilterChip(
+                    selected = uiState.statusFilter == null,
+                    onClick = { viewModel.onFilterChange(null) },
+                    label = { Text("Todas (${uiState.returns.size})") }
+                )
+            }
+            items(ReturnStatus.entries) { status ->
+                FilterChip(
+                    selected = uiState.statusFilter == status,
+                    onClick = { viewModel.onFilterChange(status) },
+                    label = { Text("${status.displayName} (${uiState.returns.count { it.status == status }})") }
+                )
+            }
+        }
+
         when {
             uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
             uiState.error != null -> MessageBox(uiState.error!!)
-            uiState.returns.isEmpty() -> MessageBox("No hay devoluciones registradas")
+            uiState.filteredReturns.isEmpty() -> MessageBox(
+                if (uiState.statusFilter == null) "No hay devoluciones registradas"
+                else "No hay devoluciones en estado ${uiState.statusFilter!!.displayName}"
+            )
             else -> LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 8.dp)
             ) {
-                items(uiState.returns, key = { it.id }) { item ->
+                items(uiState.filteredReturns, key = { it.id }) { item ->
                     ReturnCard(
                         item = item,
                         canAuthorize = ReturnPermissions.canAuthorize(uiState.profile, item),
-                        onAuthorize = { authorizing = item }
+                        onAuthorize = { authorizing = item },
+                        canRequestPickup = ReturnPermissions.canRequestPickup(uiState.profile, item),
+                        onRequestPickup = { pickingUp = item }
                     )
                 }
             }
@@ -109,11 +139,40 @@ fun ReturnListScreen(
             },
             dismissButton = { TextButton(onClick = { authorizing = null }) { Text("Cancelar") } }
         )
+        pickingUp?.let { item ->
+            AlertDialog(
+                onDismissRequest = { pickingUp = null },
+                title = { Text("Coordinar recojo") },
+                text = {
+                    Text(
+                        "¿Marcar como pendiente de recojo la devolución de ${item.quantity} ${item.unit} " +
+                                "de ${item.productName}? Confirma que ya coordinaste el recojo con ${item.supplierName}."
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.onRequestPickup(item)
+                            pickingUp = null
+                        },
+                        enabled = !uiState.isSaving
+                    ) { Text("Confirmar") }
+                },
+                dismissButton = { TextButton(onClick = { pickingUp = null }) { Text("Cancelar") } }
+            )
+        }
     }
 }
 
 @Composable
-private fun ReturnCard(item: SupplierReturn, canAuthorize: Boolean, onAuthorize: () -> Unit) {
+private fun ReturnCard(
+    item: SupplierReturn,
+    canAuthorize: Boolean,
+    onAuthorize: () -> Unit,
+    canRequestPickup: Boolean,
+    onRequestPickup: () -> Unit
+) {
+    val (container, content) = statusColors(item.status)
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
@@ -126,13 +185,13 @@ private fun ReturnCard(item: SupplierReturn, canAuthorize: Boolean, onAuthorize:
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                "Tipo: ${item.type.displayName} · ${formatDateTime(item.createdAt)}",
+                "Tipo: ${item.type.displayName} · Registrada ${formatDateTime(item.createdAt)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                color = container,
+                contentColor = content,
                 shape = RoundedCornerShape(50),
                 modifier = Modifier.padding(top = 6.dp)
             ) {
@@ -144,10 +203,17 @@ private fun ReturnCard(item: SupplierReturn, canAuthorize: Boolean, onAuthorize:
             }
             if (item.authorizedByName.isNotBlank()) {
                 Text(
-                    "Autorizada por ${item.authorizedByName}",
+                    "Autorizada por ${item.authorizedByName} · ${formatDateTime(item.authorizedAt)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            if (item.pickupRequestedAt > 0) {
+                Text(
+                    "Pendiente de recojo desde ${formatDateTime(item.pickupRequestedAt)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (canAuthorize) {
@@ -155,8 +221,26 @@ private fun ReturnCard(item: SupplierReturn, canAuthorize: Boolean, onAuthorize:
                     Text("Autorizar")
                 }
             }
+            if (canRequestPickup) {
+                TextButton(onClick = onRequestPickup, modifier = Modifier.padding(top = 4.dp)) {
+                    Text("Coordinar recojo")
+                }
+            }
         }
     }
+}
+
+// Color de la etiqueta según el estado (fondo, texto)
+@Composable
+private fun statusColors(status: ReturnStatus): Pair<Color, Color> = when (status) {
+    ReturnStatus.REGISTRADA ->
+        MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+    ReturnStatus.AUTORIZADA ->
+        MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+    ReturnStatus.PENDIENTE_RECOJO ->
+        MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+    ReturnStatus.RECOGIDA ->
+        MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
 }
 
 @Composable
