@@ -96,6 +96,6 @@ class ExtensionAlertRepositoryImpl @Inject constructor(
         const val PREFS_NAME = "extension_alerts"
         const val KEY_LAST_SEEN = "last_seen"
         const val CHANNEL_ID = "extension_alerts"
-        const val NOTIFICATION_ID = 1003   // 1001 stock, 1002 recordatorio
+        const val NOTIFICATION_ID = 1004   // 1001 stock, 1002 recordatorio, 1003 alertas logísticas (push)
     }
 }
