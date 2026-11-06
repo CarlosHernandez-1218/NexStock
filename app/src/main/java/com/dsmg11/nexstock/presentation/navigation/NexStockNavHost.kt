@@ -31,6 +31,7 @@ import com.dsmg11.nexstock.presentation.dashboard.DashboardScreen
 import com.dsmg11.nexstock.presentation.reception.ReceptionListScreen
 import com.dsmg11.nexstock.presentation.reception.ReceptionRegisterScreen
 import com.dsmg11.nexstock.presentation.replenishment.PendingOrdersScreen
+import com.dsmg11.nexstock.presentation.returns.ReturnListScreen
 
 @Composable
 fun NexStockNavHost(
@@ -81,6 +82,7 @@ fun NexStockNavHost(
                         AppFeature.ORDENES_COMPRA -> navController.navigate(Screen.Orders.route)
                         AppFeature.RECEPCION -> navController.navigate(Screen.Reception.route)
                         AppFeature.DASHBOARD -> navController.navigate(Screen.Dashboard.route)
+                        AppFeature.DEVOLUCIONES -> navController.navigate(Screen.Returns.route)
                         else -> Toast.makeText(
                             context,
                             "${feature.title}: disponible en el Sprint ${feature.sprint}",
@@ -172,6 +174,9 @@ fun NexStockNavHost(
                 onOpenStock = { navController.navigate(Screen.Stock.route) },
                 onOpenPendingOrders = { navController.navigate(Screen.PendingReport.route) }
             )
+        }
+        composable(Screen.Returns.route) {
+            ReturnListScreen(onBack = { navController.popBackStack() })
         }
     }
 }
