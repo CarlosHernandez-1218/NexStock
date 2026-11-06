@@ -22,6 +22,7 @@ import com.dsmg11.nexstock.domain.model.Product
 import com.dsmg11.nexstock.domain.model.ReturnType
 import com.dsmg11.nexstock.domain.model.Supplier
 import com.dsmg11.nexstock.domain.model.SupplierReturn
+import com.dsmg11.nexstock.domain.usecase.returns.ReturnPermissions
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -34,6 +35,7 @@ fun ReturnListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showForm by remember { mutableStateOf(false) }
+    var authorizing by remember { mutableStateOf<SupplierReturn?>(null) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -64,7 +66,13 @@ fun ReturnListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 8.dp)
             ) {
-                items(uiState.returns, key = { it.id }) { item -> ReturnCard(item) }
+                items(uiState.returns, key = { it.id }) { item ->
+                    ReturnCard(
+                        item = item,
+                        canAuthorize = ReturnPermissions.canAuthorize(uiState.profile, item),
+                        onAuthorize = { authorizing = item }
+                    )
+                }
             }
         }
     }
@@ -80,10 +88,32 @@ fun ReturnListScreen(
             }
         )
     }
+    authorizing?.let { item ->
+        AlertDialog(
+            onDismissRequest = { authorizing = null },
+            title = { Text("Autorizar devolución") },
+            text = {
+                Text(
+                    "¿Autorizar la devolución de ${item.quantity} ${item.unit} de ${item.productName} " +
+                            "a ${item.supplierName}? Se avisará al Administrador de Tienda."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.onAuthorize(item)
+                        authorizing = null
+                    },
+                    enabled = !uiState.isSaving
+                ) { Text("Autorizar") }
+            },
+            dismissButton = { TextButton(onClick = { authorizing = null }) { Text("Cancelar") } }
+        )
+    }
 }
 
 @Composable
-private fun ReturnCard(item: SupplierReturn) {
+private fun ReturnCard(item: SupplierReturn, canAuthorize: Boolean, onAuthorize: () -> Unit) {
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
@@ -111,6 +141,19 @@ private fun ReturnCard(item: SupplierReturn) {
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
+            }
+            if (item.authorizedByName.isNotBlank()) {
+                Text(
+                    "Autorizada por ${item.authorizedByName}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            if (canAuthorize) {
+                TextButton(onClick = onAuthorize, modifier = Modifier.padding(top = 4.dp)) {
+                    Text("Autorizar")
+                }
             }
         }
     }

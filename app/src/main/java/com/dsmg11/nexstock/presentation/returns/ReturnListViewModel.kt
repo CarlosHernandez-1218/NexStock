@@ -14,6 +14,7 @@ import com.dsmg11.nexstock.domain.usecase.returns.ObserveReturnsUseCase
 import com.dsmg11.nexstock.domain.usecase.returns.RegisterReturnUseCase
 import com.dsmg11.nexstock.domain.usecase.returns.ReturnPermissions
 import com.dsmg11.nexstock.domain.usecase.supplier.ObserveSuppliersUseCase
+import com.dsmg11.nexstock.domain.usecase.returns.AuthorizeReturnUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,7 +44,8 @@ class ReturnListViewModel @Inject constructor(
     observeReturns: ObserveReturnsUseCase,
     observeProducts: ObserveProductsUseCase,
     observeSuppliers: ObserveSuppliersUseCase,
-    private val registerReturn: RegisterReturnUseCase
+    private val registerReturn: RegisterReturnUseCase,
+    private val authorizeReturn: AuthorizeReturnUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReturnListUiState())
@@ -98,6 +100,24 @@ class ReturnListViewModel @Inject constructor(
                 .onFailure { e ->
                     _uiState.update {
                         it.copy(isSaving = false, message = e.message ?: "No se pudo registrar la devolución")
+                    }
+                }
+        }
+    }
+
+    fun onAuthorize(item: SupplierReturn) {
+        if (_uiState.value.isSaving) return
+        _uiState.update { it.copy(isSaving = true) }
+        viewModelScope.launch {
+            authorizeReturn(_uiState.value.profile, item)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(isSaving = false, message = "Devolución autorizada. Se avisó al Administrador")
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(isSaving = false, message = e.message ?: "No se pudo autorizar la devolución")
                     }
                 }
         }
