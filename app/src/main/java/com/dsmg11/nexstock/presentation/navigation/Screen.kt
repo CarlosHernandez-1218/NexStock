@@ -25,4 +25,5 @@ sealed class Screen(val route: String) {
     }
     data object PendingReport : Screen("pending_report")
     data object Dashboard : Screen("dashboard")
+    data object Returns : Screen("returns")
 }
