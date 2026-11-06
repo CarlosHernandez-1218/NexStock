@@ -16,6 +16,7 @@ import com.dsmg11.nexstock.domain.usecase.returns.RegisterReturnUseCase
 import com.dsmg11.nexstock.domain.usecase.returns.ReturnPermissions
 import com.dsmg11.nexstock.domain.usecase.supplier.ObserveSuppliersUseCase
 import com.dsmg11.nexstock.domain.usecase.returns.AuthorizeReturnUseCase
+import com.dsmg11.nexstock.domain.usecase.returns.ConfirmPickupUseCase
 import com.dsmg11.nexstock.domain.usecase.returns.RequestPickupUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,7 +52,8 @@ class ReturnListViewModel @Inject constructor(
     observeSuppliers: ObserveSuppliersUseCase,
     private val registerReturn: RegisterReturnUseCase,
     private val authorizeReturn: AuthorizeReturnUseCase,
-    private val requestPickup: RequestPickupUseCase
+    private val requestPickup: RequestPickupUseCase,
+    private val confirmPickup: ConfirmPickupUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReturnListUiState())
@@ -143,6 +145,24 @@ class ReturnListViewModel @Inject constructor(
                 .onFailure { e ->
                     _uiState.update {
                         it.copy(isSaving = false, message = e.message ?: "No se pudo coordinar el recojo")
+                    }
+                }
+        }
+    }
+
+    fun onConfirmPickup(item: SupplierReturn) {
+        if (_uiState.value.isSaving) return
+        _uiState.update { it.copy(isSaving = true) }
+        viewModelScope.launch {
+            confirmPickup(_uiState.value.profile, item)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(isSaving = false, message = "Recojo confirmado. Stock descontado")
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(isSaving = false, message = e.message ?: "No se pudo confirmar el recojo")
                     }
                 }
         }

@@ -11,6 +11,7 @@ import javax.inject.Inject
 import com.dsmg11.nexstock.domain.model.SupplierReturn
 import com.dsmg11.nexstock.domain.repository.SupplierReturnRepository
 import com.dsmg11.nexstock.domain.model.ReturnStatus
+import com.google.firebase.firestore.FieldValue
 
 class SupplierReturnRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore
@@ -63,4 +64,41 @@ class SupplierReturnRepositoryImpl @Inject constructor(
     } catch (e: Exception) {
         Result.failure(IllegalStateException("No se pudo actualizar la devolución", e))
     }
+
+    override suspend fun confirmPickup(returnId: String): Result<Unit> = try {
+        val returnRef = collection.document(returnId)
+        val rejection: String? = firestore.runTransaction(Transaction.Function<String?> { tx ->
+            // Primero se leen los dos documentos y recién después se escribe
+            val item = tx.get(returnRef).toObject(SupplierReturn::class.java)
+                ?: return@Function "La devolución no existe"
+            if (!item.status.canMoveTo(ReturnStatus.RECOGIDA)) {
+                return@Function "La devolución está en ${item.status.displayName}; no se puede confirmar el recojo"
+            }
+
+            val productRef = firestore.collection("products").document(item.productCode)
+            val productSnap = tx.get(productRef)
+            if (!productSnap.exists()) return@Function "El producto ${item.productCode} ya no existe"
+
+            val stock = productSnap.getLong("stock") ?: 0L
+            if (stock < item.quantity) {
+                return@Function "Stock insuficiente: hay $stock y se devuelven ${item.quantity}"
+            }
+
+            tx.update(
+                returnRef,
+                mapOf(
+                    "status" to ReturnStatus.RECOGIDA.name,
+                    "pickedUpAt" to System.currentTimeMillis()
+                )
+            )
+            tx.update(productRef, "stock", FieldValue.increment(-item.quantity.toLong()))
+            null
+        }).await()
+
+        if (rejection != null) Result.failure(IllegalStateException(rejection))
+        else Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(IllegalStateException("No se pudo confirmar el recojo. Revisa tu conexión", e))
+    }
+
 }

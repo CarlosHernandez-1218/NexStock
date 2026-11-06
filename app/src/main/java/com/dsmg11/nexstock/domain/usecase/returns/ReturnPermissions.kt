@@ -46,4 +46,11 @@ object ReturnPermissions {
         profile?.role == UserRole.JEFE_LINEA &&
                 item.status == ReturnStatus.AUTORIZADA &&
                 profile?.assignedLines.orEmpty().any { it.name == item.line }
+
+    // Confirmar que el proveedor recogió: Jefe de Línea de esa línea, con la devolución Pendiente de recojo
+    fun canConfirmPickup(profile: UserProfile?, item: SupplierReturn): Boolean =
+        profile?.role == UserRole.JEFE_LINEA &&
+                item.status == ReturnStatus.PENDIENTE_RECOJO &&
+                profile?.assignedLines.orEmpty().any { it.name == item.line }
+
 }
