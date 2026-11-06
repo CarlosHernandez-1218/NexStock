@@ -40,6 +40,7 @@ fun ReturnListScreen(
     var showForm by remember { mutableStateOf(false) }
     var authorizing by remember { mutableStateOf<SupplierReturn?>(null) }
     var pickingUp by remember { mutableStateOf<SupplierReturn?>(null) }
+    var confirmingPickup by remember { mutableStateOf<SupplierReturn?>(null) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -100,7 +101,9 @@ fun ReturnListScreen(
                         canAuthorize = ReturnPermissions.canAuthorize(uiState.profile, item),
                         onAuthorize = { authorizing = item },
                         canRequestPickup = ReturnPermissions.canRequestPickup(uiState.profile, item),
-                        onRequestPickup = { pickingUp = item }
+                        onRequestPickup = { pickingUp = item },
+                        canConfirmPickup = ReturnPermissions.canConfirmPickup(uiState.profile, item),
+                        onConfirmPickup = { confirmingPickup = item }
                     )
                 }
             }
@@ -161,6 +164,28 @@ fun ReturnListScreen(
                 dismissButton = { TextButton(onClick = { pickingUp = null }) { Text("Cancelar") } }
             )
         }
+        confirmingPickup?.let { item ->
+            AlertDialog(
+                onDismissRequest = { confirmingPickup = null },
+                title = { Text("Confirmar recojo") },
+                text = {
+                    Text(
+                        "¿${item.supplierName} ya recogió ${item.quantity} ${item.unit} de ${item.productName}? " +
+                                "Se descontarán del stock y esta acción no se puede deshacer."
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.onConfirmPickup(item)
+                            confirmingPickup = null
+                        },
+                        enabled = !uiState.isSaving
+                    ) { Text("Confirmar recojo") }
+                },
+                dismissButton = { TextButton(onClick = { confirmingPickup = null }) { Text("Cancelar") } }
+            )
+        }
     }
 }
 
@@ -170,7 +195,9 @@ private fun ReturnCard(
     canAuthorize: Boolean,
     onAuthorize: () -> Unit,
     canRequestPickup: Boolean,
-    onRequestPickup: () -> Unit
+    onRequestPickup: () -> Unit,
+    canConfirmPickup: Boolean,
+    onConfirmPickup: () -> Unit
 ) {
     val (container, content) = statusColors(item.status)
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
@@ -216,6 +243,13 @@ private fun ReturnCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            if (item.pickedUpAt > 0) {
+                Text(
+                    "Recogida el ${formatDateTime(item.pickedUpAt)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             if (canAuthorize) {
                 TextButton(onClick = onAuthorize, modifier = Modifier.padding(top = 4.dp)) {
                     Text("Autorizar")
@@ -224,6 +258,11 @@ private fun ReturnCard(
             if (canRequestPickup) {
                 TextButton(onClick = onRequestPickup, modifier = Modifier.padding(top = 4.dp)) {
                     Text("Coordinar recojo")
+                }
+            }
+            if (canConfirmPickup) {
+                TextButton(onClick = onConfirmPickup, modifier = Modifier.padding(top = 4.dp)) {
+                    Text("Confirmar recojo")
                 }
             }
         }
