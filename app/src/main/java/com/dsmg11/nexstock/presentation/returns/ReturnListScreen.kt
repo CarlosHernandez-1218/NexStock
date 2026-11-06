@@ -29,6 +29,12 @@ import java.util.Locale
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.ui.graphics.Color
 import com.dsmg11.nexstock.domain.model.ReturnStatus
+import androidx.compose.foundation.BorderStroke
+import com.dsmg11.nexstock.domain.model.WarehouseAlert
+import com.dsmg11.nexstock.domain.model.warehouseAlert
+import com.dsmg11.nexstock.domain.model.warehouseText
+import com.dsmg11.nexstock.ui.theme.StockAgotado
+import com.dsmg11.nexstock.ui.theme.StockBajo
 
 @Composable
 fun ReturnListScreen(
@@ -200,7 +206,16 @@ private fun ReturnCard(
     onConfirmPickup: () -> Unit
 ) {
     val (container, content) = statusColors(item.status)
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    val alert = item.warehouseAlert()
+    val accent: Color? = when (alert) {
+        WarehouseAlert.OVER_LIMIT -> StockAgotado
+        WarehouseAlert.NEAR_LIMIT -> StockBajo
+        null -> null
+    }
+    OutlinedCard(
+        border = if (accent != null) BorderStroke(2.dp, accent) else CardDefaults.outlinedCardBorder(),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 "${item.productName} · ${item.quantity} ${item.unit}",
@@ -227,6 +242,21 @@ private fun ReturnCard(
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
+            }
+            if (accent != null) {
+                val textColor = if (alert == WarehouseAlert.NEAR_LIMIT) Color.Black else Color.White
+                Surface(
+                    color = accent,
+                    contentColor = textColor,
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.padding(top = 6.dp)
+                ) {
+                    Text(
+                        item.warehouseText(),
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
             }
             if (item.authorizedByName.isNotBlank()) {
                 Text(
