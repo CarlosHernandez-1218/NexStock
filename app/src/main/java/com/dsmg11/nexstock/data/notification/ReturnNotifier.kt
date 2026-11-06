@@ -25,6 +25,8 @@ object ReturnNotifier {
     private const val CHANNEL_ID = "return_alerts"
     private const val ALERT_ID = 1006      // MOV-63: plazo de 7 días (1005 queda para MOV-62)
     private const val ALERT_REQUEST_CODE = 4
+    private const val REMINDER_ID = 1005
+    private const val REMINDER_REQUEST_CODE = 5
 
     // MOV-63: devoluciones cerca del límite o que ya lo pasaron
     @SuppressLint("MissingPermission")
@@ -55,6 +57,32 @@ object ReturnNotifier {
             .setAutoCancel(true)
             .build()
         NotificationManagerCompat.from(context).notify(ALERT_ID, notification)
+    }
+
+    // MOV-62: recordatorio de los viernes para revisar almacenes y coordinar el recojo
+    @SuppressLint("MissingPermission")
+    fun showPickupReminder(context: Context, toAuthorize: Int, toCoordinate: Int, waiting: Int) {
+        if (!canNotify(context)) return
+        createChannel(context)
+
+        val summary = listOfNotNull(
+            if (toCoordinate > 0) "$toCoordinate por coordinar el recojo" else null,
+            if (waiting > 0) "$waiting esperando al proveedor" else null,
+            if (toAuthorize > 0) "$toAuthorize por autorizar" else null
+        ).joinToString(" · ")
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setContentTitle("Viernes: revisa los almacenes")
+            .setContentText(summary)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("Devoluciones en almacén: $summary.\nCoordina el recojo con el proveedor.")
+            )
+            .setContentIntent(openApp(context, REMINDER_REQUEST_CODE))
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(REMINDER_ID, notification)
     }
 
     private fun openApp(context: Context, requestCode: Int): PendingIntent =
