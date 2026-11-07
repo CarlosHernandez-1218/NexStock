@@ -148,50 +148,50 @@ fun ReturnListScreen(
             },
             dismissButton = { TextButton(onClick = { authorizing = null }) { Text("Cancelar") } }
         )
-        pickingUp?.let { item ->
-            AlertDialog(
-                onDismissRequest = { pickingUp = null },
-                title = { Text("Coordinar recojo") },
-                text = {
-                    Text(
-                        "¿Marcar como pendiente de recojo la devolución de ${item.quantity} ${item.unit} " +
-                                "de ${item.productName}? Confirma que ya coordinaste el recojo con ${item.supplierName}."
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.onRequestPickup(item)
-                            pickingUp = null
-                        },
-                        enabled = !uiState.isSaving
-                    ) { Text("Confirmar") }
-                },
-                dismissButton = { TextButton(onClick = { pickingUp = null }) { Text("Cancelar") } }
-            )
-        }
-        confirmingPickup?.let { item ->
-            AlertDialog(
-                onDismissRequest = { confirmingPickup = null },
-                title = { Text("Confirmar recojo") },
-                text = {
-                    Text(
-                        "¿${item.supplierName} ya recogió ${item.quantity} ${item.unit} de ${item.productName}? " +
-                                "Se descontarán del stock y esta acción no se puede deshacer."
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.onConfirmPickup(item)
-                            confirmingPickup = null
-                        },
-                        enabled = !uiState.isSaving
-                    ) { Text("Confirmar recojo") }
-                },
-                dismissButton = { TextButton(onClick = { confirmingPickup = null }) { Text("Cancelar") } }
-            )
-        }
+    }
+    pickingUp?.let { item ->
+        AlertDialog(
+            onDismissRequest = { pickingUp = null },
+            title = { Text("Coordinar recojo") },
+            text = {
+                Text(
+                    "¿Marcar como pendiente de recojo la devolución de ${item.quantity} ${item.unit} " +
+                            "de ${item.productName}? Confirma que ya coordinaste el recojo con ${item.supplierName}."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.onRequestPickup(item)
+                        pickingUp = null
+                    },
+                    enabled = !uiState.isSaving
+                ) { Text("Confirmar") }
+            },
+            dismissButton = { TextButton(onClick = { pickingUp = null }) { Text("Cancelar") } }
+        )
+    }
+    confirmingPickup?.let { item ->
+        AlertDialog(
+            onDismissRequest = { confirmingPickup = null },
+            title = { Text("Confirmar recojo") },
+            text = {
+                Text(
+                    "¿${item.supplierName} ya recogió ${item.quantity} ${item.unit} de ${item.productName}? " +
+                            "Se descontarán del stock y esta acción no se puede deshacer."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.onConfirmPickup(item)
+                        confirmingPickup = null
+                    },
+                    enabled = !uiState.isSaving
+                ) { Text("Confirmar recojo") }
+            },
+            dismissButton = { TextButton(onClick = { confirmingPickup = null }) { Text("Cancelar") } }
+        )
     }
 }
 
