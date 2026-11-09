@@ -17,12 +17,16 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.dsmg11.nexstock.domain.model.ReceptionIncident
+import com.dsmg11.nexstock.domain.model.ReceptionIncidentType
 
 data class ReceptionRegisterUiState(
     val order: PurchaseOrder? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
     val quantities: Map<String, Int> = emptyMap(),   // código de producto -> cantidad recibida ahora
+    // HU08: incidencias registradas durante esta recepción
+    val incidents: List<ReceptionIncident> = emptyList(),
     val highlightedCode: String? = null,            // último producto escaneado
     val scanCount: Int = 0,                         // sube en cada escaneo válido (para desplazar la lista)
     val message: String? = null,
@@ -131,7 +135,54 @@ class ReceptionRegisterViewModel @Inject constructor(
             )
         }
     }
+    // MOV-53 y MOV-54: registra una incidencia para un producto de la recepción
+    fun onAddIncident(
+        productCode: String,
+        productName: String,
+        type: ReceptionIncidentType,
+        observation: String
+    ) {
+        val cleanObservation = observation.trim()
 
+        if (cleanObservation.isBlank()) {
+            showMessage("Ingresa una observación para la incidencia")
+            return
+        }
+
+        val incident = ReceptionIncident(
+            productCode = productCode,
+            productName = productName,
+            type = type,
+            observation = cleanObservation
+        )
+
+        _uiState.update { state ->
+
+            // Para un mismo producto y tipo se conserva una sola incidencia.
+            // Si vuelve a registrarse, se reemplaza por la información más reciente.
+            val updatedIncidents = state.incidents
+                .filterNot {
+                    it.productCode == productCode &&
+                            it.type == type
+                } + incident
+
+            state.copy(
+                incidents = updatedIncidents,
+                message = "Incidencia ${type.displayName.lowercase()} registrada para $productName"
+            )
+        }
+    }
+
+    fun onRemoveIncident(
+        incident: ReceptionIncident
+    ) {
+        _uiState.update { state ->
+            state.copy(
+                incidents = state.incidents - incident,
+                message = "Incidencia eliminada"
+            )
+        }
+    }
     // MOV-50: guarda la recepción; el stock y la orden se actualizan al instante en el celular
     fun onSave() {
         val state = _uiState.value
@@ -139,7 +190,7 @@ class ReceptionRegisterViewModel @Inject constructor(
         if (!state.canReview) return
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
-            registerReception(order, state.quantities)
+            registerReception(order, state.quantities, state.incidents)
                 .onSuccess { reception ->
                     val units = reception.items.sumOf { it.received }
                     _uiState.update {

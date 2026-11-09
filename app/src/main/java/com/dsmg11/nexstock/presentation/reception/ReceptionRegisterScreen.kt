@@ -56,6 +56,11 @@ import com.dsmg11.nexstock.domain.model.isPendingReception
 import com.dsmg11.nexstock.domain.model.pendingOf
 import com.dsmg11.nexstock.presentation.catalog.rememberBarcodeScanner
 import com.dsmg11.nexstock.presentation.replenishment.shortId
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.RadioButton
+import com.dsmg11.nexstock.domain.model.ReceptionIncident
+import com.dsmg11.nexstock.domain.model.ReceptionIncidentType
+import androidx.compose.foundation.layout.height
 
 // MOV-48 y MOV-49: registrar lo que llegó de una orden, escaneando o digitando cantidades
 @Composable
@@ -67,7 +72,9 @@ fun ReceptionRegisterScreen(
     val context = LocalContext.current
     val listState = rememberLazyListState()
     var showReview by remember { mutableStateOf(false) }
-
+    var incidentItem by remember {
+        mutableStateOf<PurchaseOrderItem?>(null)
+    }
     val openScanner = rememberBarcodeScanner(
         onScanned = viewModel::onBarcodeScanned,
         onError = viewModel::onScannerError
@@ -157,9 +164,27 @@ fun ReceptionRegisterScreen(
                             pending = order.pendingOf(item),
                             now = now,
                             highlighted = item.code == uiState.highlightedCode,
-                            onIncrement = { viewModel.onIncrement(item.code) },
-                            onDecrement = { viewModel.onDecrement(item.code) },
-                            onTyped = { viewModel.onQuantityTyped(item.code, it) }
+                            incidents = uiState.incidents.filter {
+                                it.productCode == item.code
+                            },
+                            onIncrement = {
+                                viewModel.onIncrement(item.code)
+                            },
+                            onDecrement = {
+                                viewModel.onDecrement(item.code)
+                            },
+                            onTyped = {
+                                viewModel.onQuantityTyped(
+                                    item.code,
+                                    it
+                                )
+                            },
+                            onAddIncident = {
+                                incidentItem = item
+                            },
+                            onRemoveIncident = {
+                                viewModel.onRemoveIncident(it)
+                            }
                         )
                     }
                 }
@@ -197,6 +222,29 @@ fun ReceptionRegisterScreen(
                             Text("• ${item.name}: $qty ${item.unit}", style = MaterialTheme.typography.bodySmall)
                         }
                     }
+                    // HU08: resumen de incidencias antes de confirmar la recepción
+                    if (uiState.incidents.isNotEmpty()) {
+
+                        Spacer(
+                            modifier = Modifier.height(8.dp)
+                        )
+
+                        Text(
+                            text = "Incidencias (${uiState.incidents.size})",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+
+                        uiState.incidents.forEach { incident ->
+
+                            Text(
+                                text = "• ${incident.productName}: " +
+                                        "${incident.type.displayName} — " +
+                                        incident.observation,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
                     Text(
                         if (uiState.completesOrder) "La orden quedará como Recibida."
                         else "Aún faltarán productos: la orden quedará como Parcialmente recibida.",
@@ -216,6 +264,29 @@ fun ReceptionRegisterScreen(
             }
         )
     }
+        incidentItem?.let { item ->
+
+            ReceptionIncidentDialog(
+                item = item,
+
+                onDismiss = {
+                    incidentItem = null
+                },
+
+                onConfirm = { type, observation ->
+
+                    viewModel.onAddIncident(
+                        productCode = item.code,
+                        productName = item.name,
+                        type = type,
+                        observation = observation
+                    )
+
+                    // Cierra el diálogo después de registrar
+                    incidentItem = null
+                }
+            )
+        }
 }
 
 @Composable
@@ -225,9 +296,15 @@ private fun ReceptionItemCard(
     pending: Int,
     now: Int,
     highlighted: Boolean,
+
+    incidents: List<ReceptionIncident>,
+
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
-    onTyped: (String) -> Unit
+    onTyped: (String) -> Unit,
+
+    onAddIncident: () -> Unit,
+    onRemoveIncident: (ReceptionIncident) -> Unit
 ) {
     // El último producto escaneado se marca con un borde de color
     val border = if (highlighted) BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
@@ -256,7 +333,53 @@ private fun ReceptionItemCard(
                     else MaterialTheme.colorScheme.surfaceVariant
                 )
             }
+            FilledTonalButton(
+                onClick = onAddIncident,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    if (incidents.isEmpty()) {
+                        "Registrar incidencia"
+                    } else {
+                        "Agregar otra incidencia"
+                    }
+                )
+            }
+            incidents.forEach { incident ->
 
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+
+                        Text(
+                            text = incident.type.displayName,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+
+                        Text(
+                            text = incident.observation,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+
+                        TextButton(
+                            onClick = {
+                                onRemoveIncident(incident)
+                            }
+                        ) {
+                            Text("Quitar incidencia")
+                        }
+                    }
+                }
+            }
             if (pending == 0) {
                 Text(
                     "Completo: ya se recibió todo lo pedido",
@@ -289,7 +412,131 @@ private fun ReceptionItemCard(
         }
     }
 }
+@Composable
+private fun ReceptionIncidentDialog(
+    item: PurchaseOrderItem,
+    onDismiss: () -> Unit,
+    onConfirm: (
+        ReceptionIncidentType,
+        String
+    ) -> Unit
+) {
+    var selectedType by remember(item.code) {
+        mutableStateOf(
+            ReceptionIncidentType.FALTANTE
+        )
+    }
 
+    var observation by remember(item.code) {
+        mutableStateOf("")
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+
+        title = {
+            Text("Registrar incidencia")
+        },
+
+        text = {
+
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp)
+            ) {
+
+                Text(
+                    text = item.name,
+                    style =
+                        MaterialTheme.typography.titleSmall
+                )
+
+                Text(
+                    text = item.code,
+                    style =
+                        MaterialTheme.typography.bodySmall,
+                    color =
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Text(
+                    text = "Tipo de incidencia",
+                    style =
+                        MaterialTheme.typography.labelLarge
+                )
+
+                ReceptionIncidentType.entries.forEach { type ->
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedType = type
+                            },
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+
+                        RadioButton(
+                            selected =
+                                selectedType == type,
+                            onClick = {
+                                selectedType = type
+                            }
+                        )
+
+                        Text(
+                            text = type.displayName
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = observation,
+                    onValueChange = {
+                        observation = it
+                    },
+                    label = {
+                        Text("Observación")
+                    },
+                    placeholder = {
+                        Text(
+                            "Describe lo ocurrido durante la recepción"
+                        )
+                    },
+                    minLines = 3,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                )
+            }
+        },
+
+        confirmButton = {
+
+            TextButton(
+                onClick = {
+                    onConfirm(
+                        selectedType,
+                        observation.trim()
+                    )
+                },
+                enabled =
+                    observation.isNotBlank()
+            ) {
+                Text("Agregar")
+            }
+        },
+
+        dismissButton = {
+
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
 @Composable
 private fun QuantityTag(label: String, value: Int, color: Color) {
     Surface(color = color, shape = RoundedCornerShape(8.dp)) {
