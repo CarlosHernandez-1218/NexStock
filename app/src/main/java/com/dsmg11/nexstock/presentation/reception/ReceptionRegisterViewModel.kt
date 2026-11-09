@@ -21,6 +21,8 @@ import com.dsmg11.nexstock.domain.model.ReceptionIncident
 import com.dsmg11.nexstock.domain.model.ReceptionIncidentType
 import com.dsmg11.nexstock.domain.model.ReceptionLocation
 import com.dsmg11.nexstock.domain.usecase.reception.GetCurrentReceptionLocationUseCase
+import com.dsmg11.nexstock.domain.model.ReceptionLocationValidation
+import com.dsmg11.nexstock.domain.usecase.reception.ValidateReceptionLocationUseCase
 
 data class ReceptionRegisterUiState(
     val order: PurchaseOrder? = null,
@@ -33,6 +35,8 @@ data class ReceptionRegisterUiState(
     val location: ReceptionLocation? = null,
     val isLocating: Boolean = false,
     val locationError: String? = null,
+    // MOV-57: resultado de validación contra el almacén
+    val locationValidation: ReceptionLocationValidation? = null,
     val highlightedCode: String? = null,            // último producto escaneado
     val scanCount: Int = 0,                         // sube en cada escaneo válido (para desplazar la lista)
     val message: String? = null,
@@ -57,7 +61,9 @@ class ReceptionRegisterViewModel @Inject constructor(
     private val findProductCode: FindProductCodeByBarcodeUseCase,
     private val registerReception: RegisterReceptionUseCase,
     private val getCurrentLocation:
-    GetCurrentReceptionLocationUseCase
+    GetCurrentReceptionLocationUseCase,
+    private val validateReceptionLocation:
+    ValidateReceptionLocationUseCase
 ) : ViewModel() {
 
     private val orderId: String = checkNotNull(savedStateHandle["orderId"])
@@ -230,9 +236,15 @@ class ReceptionRegisterViewModel @Inject constructor(
             getCurrentLocation()
                 .onSuccess { location ->
 
+                    // MOV-57: se compara la posición obtenida
+                    // contra el almacén configurado.
+                    val validation =
+                        validateReceptionLocation(location)
+
                     _uiState.update {
                         it.copy(
                             location = location,
+                            locationValidation = validation,
                             isLocating = false,
                             locationError = null
                         )
@@ -257,6 +269,7 @@ class ReceptionRegisterViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 location = null,
+                locationValidation = null,
                 isLocating = false,
                 locationError =
                     "Debes permitir el acceso a la ubicación para registrar la recepción"
@@ -273,6 +286,24 @@ class ReceptionRegisterViewModel @Inject constructor(
             showMessage(
                 "Es necesario obtener la ubicación antes de registrar la recepción"
             )
+            return
+        }
+        val validation =
+            state.locationValidation
+
+        if (validation == null) {
+            showMessage(
+                "No se pudo validar la ubicación del almacén"
+            )
+            return
+        }
+
+        if (!validation.isValid) {
+
+            showMessage(
+                "No puedes registrar la recepción fuera de ${validation.site.name}"
+            )
+
             return
         }
         if (!state.canReview) return

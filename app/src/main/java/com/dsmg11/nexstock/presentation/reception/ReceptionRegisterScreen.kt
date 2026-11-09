@@ -235,9 +235,8 @@ fun ReceptionRegisterScreen(
 
                                 uiState.isLocating -> {
                                     Text(
-                                        "Obteniendo ubicación GPS…",
-                                        style =
-                                            MaterialTheme.typography.bodySmall
+                                        text = "Obteniendo ubicación GPS…",
+                                        style = MaterialTheme.typography.bodySmall
                                     )
                                 }
 
@@ -245,39 +244,61 @@ fun ReceptionRegisterScreen(
 
                                     Text(
                                         text = "Ubicación GPS registrada",
-                                        style =
-                                            MaterialTheme.typography.bodySmall,
-                                        color =
-                                            MaterialTheme.colorScheme.primary
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
                                     )
 
                                     Text(
-                                        text =
-                                            "%.5f, %.5f".format(
-                                                uiState.location!!.latitude,
-                                                uiState.location!!.longitude
-                                            ),
-                                        style =
-                                            MaterialTheme.typography.labelSmall
+                                        text = "%.5f, %.5f".format(
+                                            uiState.location!!.latitude,
+                                            uiState.location!!.longitude
+                                        ),
+                                        style = MaterialTheme.typography.labelSmall
                                     )
+
+                                    // MOV-57: resultado de la validación del almacén
+                                    uiState.locationValidation?.let { validation ->
+
+                                        Spacer(
+                                            modifier = Modifier.height(4.dp)
+                                        )
+
+                                        if (validation.isValid) {
+
+                                            Text(
+                                                text = "✓ Ubicación validada: ${validation.site.name}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+
+                                        } else {
+
+                                            Text(
+                                                text = "Ubicación fuera de ${validation.site.name}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+
+                                        Text(
+                                            text = "Distancia: ${validation.distanceMeters.toInt()} m",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
                                 }
 
                                 uiState.locationError != null -> {
                                     Text(
-                                        text =
-                                            uiState.locationError!!,
-                                        style =
-                                            MaterialTheme.typography.bodySmall,
-                                        color =
-                                            MaterialTheme.colorScheme.error
+                                        text = uiState.locationError!!,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
                                     )
                                 }
 
                                 else -> {
                                     Text(
-                                        "Ubicación pendiente",
-                                        style =
-                                            MaterialTheme.typography.bodySmall
+                                        text = "Ubicación pendiente",
+                                        style = MaterialTheme.typography.bodySmall
                                     )
                                 }
                             }
