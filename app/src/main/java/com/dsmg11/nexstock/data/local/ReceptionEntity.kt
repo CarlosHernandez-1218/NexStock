@@ -8,6 +8,7 @@ import com.dsmg11.nexstock.domain.model.ReceptionItem
 import com.dsmg11.nexstock.domain.model.ReceptionLocation
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.dsmg11.nexstock.domain.model.ReceptionIncident
 
 @Entity(tableName = "receptions", indices = [Index("orderId")])
 data class ReceptionEntity(
@@ -16,6 +17,8 @@ data class ReceptionEntity(
     val supplierRuc: String,
     val supplierName: String,
     val itemsJson: String,                 // la lista de productos guardada como JSON
+    // HU08: incidencias serializadas para poder trabajar sin conexión
+    val incidentsJson: String = "[]",
     val receivedBy: String,
     val receivedAt: Long,
     val latitude: Double?,
@@ -26,15 +29,39 @@ data class ReceptionEntity(
 private val gson = Gson()
 private val itemsType = object : TypeToken<List<ReceptionItem>>() {}.type
 
+private val incidentsType =  object : TypeToken<List<ReceptionIncident>>() {}.type
+
 fun ReceptionEntity.toDomain() = Reception(
     id = id,
     orderId = orderId,
     supplierRuc = supplierRuc,
     supplierName = supplierName,
-    items = gson.fromJson<List<ReceptionItem>>(itemsJson, itemsType) ?: emptyList(),
+
+    items = gson.fromJson<List<ReceptionItem>>(
+        itemsJson,
+        itemsType
+    ) ?: emptyList(),
+
+    incidents = gson.fromJson<List<ReceptionIncident>>(
+        incidentsJson,
+        incidentsType
+    ) ?: emptyList(),
+
     receivedBy = receivedBy,
     receivedAt = receivedAt,
-    location = if (latitude != null && longitude != null) ReceptionLocation(latitude, longitude) else null,
+
+    location = if (
+        latitude != null &&
+        longitude != null
+    ) {
+        ReceptionLocation(
+            latitude,
+            longitude
+        )
+    } else {
+        null
+    },
+
     pendingSync = pendingSync
 )
 
@@ -43,7 +70,12 @@ fun Reception.toEntity() = ReceptionEntity(
     orderId = orderId,
     supplierRuc = supplierRuc,
     supplierName = supplierName,
+
     itemsJson = gson.toJson(items),
+
+    // Las incidencias también quedan disponibles offline
+    incidentsJson = gson.toJson(incidents),
+
     receivedBy = receivedBy,
     receivedAt = receivedAt,
     latitude = location?.latitude,

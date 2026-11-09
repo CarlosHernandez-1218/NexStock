@@ -20,6 +20,8 @@ data class Reception(
     val supplierRuc: String = "",
     val supplierName: String = "",
     val items: List<ReceptionItem> = emptyList(),
+    // HU08: incidencias detectadas durante la recepción
+    val incidents: List<ReceptionIncident> = emptyList(),
     val receivedBy: String = "",               // uid del almacenero
     val receivedAt: Long = 0L,
     val location: ReceptionLocation? = null,   // la llena la HU08 (geolocalización)
