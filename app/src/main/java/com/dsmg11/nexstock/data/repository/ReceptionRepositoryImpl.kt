@@ -41,6 +41,18 @@ fun Reception.toFirestoreMap(): Map<String, Any?> = mapOf(
             "received" to it.received
         )
     },
+    // HU08: incidencias detectadas durante la recepción
+    "incidents" to incidents.map { incident ->
+        mapOf(
+            "productCode" to incident.productCode,
+            "productName" to incident.productName,
+            "type" to incident.type.name,
+            "observation" to incident.observation,
+
+            // MOV-55: cuando implementemos Storage aquí llegará la URL pública
+            "photoUrl" to incident.photoUrl
+        )
+    },
     "receivedBy" to receivedBy,
     "receivedAt" to receivedAt,
     "location" to location?.let { mapOf("latitude" to it.latitude, "longitude" to it.longitude) }

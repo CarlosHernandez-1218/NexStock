@@ -9,13 +9,15 @@ import com.dsmg11.nexstock.domain.repository.ReceptionRepository
 import com.dsmg11.nexstock.domain.usecase.GetCurrentUserUseCase
 import java.util.UUID
 import javax.inject.Inject
+import com.dsmg11.nexstock.domain.model.ReceptionIncident
+import com.dsmg11.nexstock.domain.model.ReceptionLocation
 
 // MOV-50: arma la recepción con lo que llegó y la guarda (también sin internet)
 class RegisterReceptionUseCase @Inject constructor(
     private val repository: ReceptionRepository,
     private val getCurrentUser: GetCurrentUserUseCase
 ) {
-    suspend operator fun invoke(order: PurchaseOrder, quantities: Map<String, Int>): Result<Reception> {
+    suspend operator fun invoke(order: PurchaseOrder, quantities: Map<String, Int>,incidents: List<ReceptionIncident> = emptyList(),location: ReceptionLocation): Result<Reception> {
         val user = getCurrentUser()
             ?: return Result.failure(IllegalStateException("Inicia sesión para registrar la recepción"))
         if (!order.isPendingReception) {
@@ -48,9 +50,12 @@ class RegisterReceptionUseCase @Inject constructor(
             supplierRuc = order.supplierRuc,
             supplierName = order.supplierName,
             items = items,
+            // HU08
+            incidents = incidents,
             receivedBy = user.uid,
             receivedAt = System.currentTimeMillis(),
-            location = null,                     // HU08 (Mauro) agregará la ubicación GPS
+            // MOV-56 se implementará después
+            location = location,                     // MOV-56: ubicación obtenida del dispositivo
             pendingSync = true
         )
         return repository.register(reception).map { reception }

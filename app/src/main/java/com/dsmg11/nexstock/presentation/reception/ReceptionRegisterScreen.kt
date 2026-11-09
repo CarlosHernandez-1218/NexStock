@@ -56,6 +56,20 @@ import com.dsmg11.nexstock.domain.model.isPendingReception
 import com.dsmg11.nexstock.domain.model.pendingOf
 import com.dsmg11.nexstock.presentation.catalog.rememberBarcodeScanner
 import com.dsmg11.nexstock.presentation.replenishment.shortId
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.RadioButton
+import com.dsmg11.nexstock.domain.model.ReceptionIncident
+import com.dsmg11.nexstock.domain.model.ReceptionIncidentType
+import androidx.compose.foundation.layout.height
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.core.content.ContextCompat
+import coil3.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.filled.LocationOn
 
 // MOV-48 y MOV-49: registrar lo que llegó de una orden, escaneando o digitando cantidades
 @Composable
@@ -65,9 +79,63 @@ fun ReceptionRegisterScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val locationPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract =
+                ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+
+            val fineGranted =
+                permissions[
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ] == true
+
+            val coarseGranted =
+                permissions[
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ] == true
+
+            if (fineGranted || coarseGranted) {
+                viewModel.onLocationPermissionGranted()
+            } else {
+                viewModel.onLocationPermissionDenied()
+            }
+        }
+
+    LaunchedEffect(Unit) {
+
+        val fineGranted =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+        val coarseGranted =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+        if (fineGranted || coarseGranted) {
+
+            viewModel.onLocationPermissionGranted()
+
+        } else {
+
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
     val listState = rememberLazyListState()
     var showReview by remember { mutableStateOf(false) }
-
+    var incidentItem by remember {
+        mutableStateOf<PurchaseOrderItem?>(null)
+    }
     val openScanner = rememberBarcodeScanner(
         onScanned = viewModel::onBarcodeScanned,
         onError = viewModel::onScannerError
@@ -128,6 +196,150 @@ fun ReceptionRegisterScreen(
                 "Esta orden está en estado ${order.status.displayName} y ya no admite recepciones"
             )
             else -> {
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color =
+                        MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                ) {
+
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+
+                        Icon(
+                            imageVector =
+                                Icons.Default.LocationOn,
+                            contentDescription = null
+                        )
+
+                        Spacer(
+                            modifier = Modifier.width(8.dp)
+                        )
+
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+
+                            Text(
+                                text = "Ubicación de recepción",
+                                style =
+                                    MaterialTheme.typography.labelLarge
+                            )
+
+                            when {
+
+                                uiState.isLocating -> {
+                                    Text(
+                                        text = "Obteniendo ubicación GPS…",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+
+                                uiState.location != null -> {
+
+                                    Text(
+                                        text = "Ubicación GPS registrada",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+
+                                    Text(
+                                        text = "%.5f, %.5f".format(
+                                            uiState.location!!.latitude,
+                                            uiState.location!!.longitude
+                                        ),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+
+                                    // MOV-57: resultado de la validación del almacén
+                                    uiState.locationValidation?.let { validation ->
+
+                                        Spacer(
+                                            modifier = Modifier.height(4.dp)
+                                        )
+
+                                        if (validation.isValid) {
+
+                                            Text(
+                                                text = "✓ Ubicación validada: ${validation.site.name}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+
+                                        } else {
+
+                                            Text(
+                                                text = "Ubicación fuera de ${validation.site.name}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+
+                                        Text(
+                                            text = "Distancia: ${validation.distanceMeters.toInt()} m",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                }
+
+                                uiState.locationError != null -> {
+                                    Text(
+                                        text = uiState.locationError!!,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+
+                                else -> {
+                                    Text(
+                                        text = "Ubicación pendiente",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                if (
+                    uiState.location == null &&
+                    !uiState.isLocating
+                ) {
+
+                    TextButton(
+                        onClick = {
+
+                            val fineGranted =
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.ACCESS_FINE_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                            val coarseGranted =
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                            if (fineGranted || coarseGranted) {
+                                viewModel.onLocationPermissionGranted()
+                            } else {
+                                locationPermissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                )
+                            }
+                        }
+                    ) {
+                        Text("Reintentar ubicación")
+                    }
+                }
                 FilledTonalButton(
                     onClick = openScanner,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
@@ -157,9 +369,27 @@ fun ReceptionRegisterScreen(
                             pending = order.pendingOf(item),
                             now = now,
                             highlighted = item.code == uiState.highlightedCode,
-                            onIncrement = { viewModel.onIncrement(item.code) },
-                            onDecrement = { viewModel.onDecrement(item.code) },
-                            onTyped = { viewModel.onQuantityTyped(item.code, it) }
+                            incidents = uiState.incidents.filter {
+                                it.productCode == item.code
+                            },
+                            onIncrement = {
+                                viewModel.onIncrement(item.code)
+                            },
+                            onDecrement = {
+                                viewModel.onDecrement(item.code)
+                            },
+                            onTyped = {
+                                viewModel.onQuantityTyped(
+                                    item.code,
+                                    it
+                                )
+                            },
+                            onAddIncident = {
+                                incidentItem = item
+                            },
+                            onRemoveIncident = {
+                                viewModel.onRemoveIncident(it)
+                            }
                         )
                     }
                 }
@@ -197,6 +427,29 @@ fun ReceptionRegisterScreen(
                             Text("• ${item.name}: $qty ${item.unit}", style = MaterialTheme.typography.bodySmall)
                         }
                     }
+                    // HU08: resumen de incidencias antes de confirmar la recepción
+                    if (uiState.incidents.isNotEmpty()) {
+
+                        Spacer(
+                            modifier = Modifier.height(8.dp)
+                        )
+
+                        Text(
+                            text = "Incidencias (${uiState.incidents.size})",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+
+                        uiState.incidents.forEach { incident ->
+
+                            Text(
+                                text = "• ${incident.productName}: " +
+                                        "${incident.type.displayName} — " +
+                                        incident.observation,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
                     Text(
                         if (uiState.completesOrder) "La orden quedará como Recibida."
                         else "Aún faltarán productos: la orden quedará como Parcialmente recibida.",
@@ -216,6 +469,30 @@ fun ReceptionRegisterScreen(
             }
         )
     }
+        incidentItem?.let { item ->
+
+            ReceptionIncidentDialog(
+                item = item,
+
+                onDismiss = {
+                    incidentItem = null
+                },
+
+                onConfirm = { type, observation, photoLocalUri ->
+
+                    viewModel.onAddIncident(
+                        productCode = item.code,
+                        productName = item.name,
+                        type = type,
+                        observation = observation,
+                        photoLocalUri = photoLocalUri
+                    )
+
+                    // Cierra el diálogo después de registrar
+                    incidentItem = null
+                }
+            )
+        }
 }
 
 @Composable
@@ -225,9 +502,15 @@ private fun ReceptionItemCard(
     pending: Int,
     now: Int,
     highlighted: Boolean,
+
+    incidents: List<ReceptionIncident>,
+
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
-    onTyped: (String) -> Unit
+    onTyped: (String) -> Unit,
+
+    onAddIncident: () -> Unit,
+    onRemoveIncident: (ReceptionIncident) -> Unit
 ) {
     // El último producto escaneado se marca con un borde de color
     val border = if (highlighted) BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
@@ -256,7 +539,53 @@ private fun ReceptionItemCard(
                     else MaterialTheme.colorScheme.surfaceVariant
                 )
             }
+            FilledTonalButton(
+                onClick = onAddIncident,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    if (incidents.isEmpty()) {
+                        "Registrar incidencia"
+                    } else {
+                        "Agregar otra incidencia"
+                    }
+                )
+            }
+            incidents.forEach { incident ->
 
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+
+                        Text(
+                            text = incident.type.displayName,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+
+                        Text(
+                            text = incident.observation,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+
+                        TextButton(
+                            onClick = {
+                                onRemoveIncident(incident)
+                            }
+                        ) {
+                            Text("Quitar incidencia")
+                        }
+                    }
+                }
+            }
             if (pending == 0) {
                 Text(
                     "Completo: ya se recibió todo lo pedido",
@@ -289,7 +618,231 @@ private fun ReceptionItemCard(
         }
     }
 }
+@Composable
+private fun ReceptionIncidentDialog(
+    item: PurchaseOrderItem,
+    onDismiss: () -> Unit,
+    onConfirm: (
+        ReceptionIncidentType,
+        String,
+        String?
+    ) -> Unit
+) {
+    var selectedType by remember(item.code) {
+        mutableStateOf(
+            ReceptionIncidentType.FALTANTE
+        )
+    }
 
+    var observation by remember(item.code) {
+        mutableStateOf("")
+    }
+
+    var photoLocalUri by remember(item.code) {
+        mutableStateOf<String?>(null)
+    }
+
+    var showCamera by remember {
+        mutableStateOf(false)
+    }
+
+    val context = LocalContext.current
+
+    val cameraPermissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+
+            if (granted) {
+                showCamera = true
+            } else {
+                Toast.makeText(
+                    context,
+                    "Se necesita permiso de cámara para registrar la evidencia",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+
+        title = {
+            Text("Registrar incidencia")
+        },
+
+        text = {
+
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp)
+            ) {
+
+                Text(
+                    text = item.name,
+                    style =
+                        MaterialTheme.typography.titleSmall
+                )
+
+                Text(
+                    text = item.code,
+                    style =
+                        MaterialTheme.typography.bodySmall,
+                    color =
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Text(
+                    text = "Tipo de incidencia",
+                    style =
+                        MaterialTheme.typography.labelLarge
+                )
+
+                ReceptionIncidentType.entries.forEach { type ->
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedType = type
+                            },
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+
+                        RadioButton(
+                            selected =
+                                selectedType == type,
+                            onClick = {
+                                selectedType = type
+                            }
+                        )
+
+                        Text(
+                            text = type.displayName
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = observation,
+                    onValueChange = {
+                        observation = it
+                    },
+                    label = {
+                        Text("Observación")
+                    },
+                    placeholder = {
+                        Text(
+                            "Describe lo ocurrido durante la recepción"
+                        )
+                    },
+                    minLines = 3,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                )
+
+                FilledTonalButton(
+                    onClick = {
+
+                        val permissionGranted =
+                            ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                        if (permissionGranted) {
+                            showCamera = true
+                        } else {
+                            cameraPermissionLauncher.launch(
+                                Manifest.permission.CAMERA
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = null
+                    )
+
+                    Spacer(
+                        modifier = Modifier.width(8.dp)
+                    )
+
+                    Text(
+                        if (photoLocalUri == null) {
+                            "Tomar foto de evidencia"
+                        } else {
+                            "Repetir fotografía"
+                        }
+                    )
+                }
+
+                photoLocalUri?.let { uri ->
+
+                    Text(
+                        text = "Evidencia fotográfica",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = "Evidencia de la incidencia",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                    )
+                }
+            }
+        },
+
+        confirmButton = {
+
+            TextButton(
+                onClick = {
+                    onConfirm(
+                        selectedType,
+                        observation.trim(),
+                        photoLocalUri
+                    )
+                },
+                enabled =
+                    observation.isNotBlank() &&
+                            !photoLocalUri.isNullOrBlank()
+            ) {
+                Text("Agregar")
+            }
+        },
+
+        dismissButton = {
+
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text("Cancelar")
+            }
+        }
+    )
+
+    if (showCamera) {
+
+        ReceptionEvidenceCamera(
+
+            onDismiss = {
+                showCamera = false
+            },
+
+            onPhotoCaptured = { uri ->
+
+                photoLocalUri = uri
+                showCamera = false
+            }
+        )
+    }
+}
 @Composable
 private fun QuantityTag(label: String, value: Int, color: Color) {
     Surface(color = color, shape = RoundedCornerShape(8.dp)) {
