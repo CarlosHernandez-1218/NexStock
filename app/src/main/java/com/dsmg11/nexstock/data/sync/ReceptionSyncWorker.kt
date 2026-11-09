@@ -56,7 +56,7 @@ class ReceptionSyncWorker(
                 val rejection = withTimeout(30_000) {
                     // HU08: primero se suben las evidencias fotográficas.
                     val receptionWithPhotos = uploadIncidentPhotos(storage, reception)
-                    upload(firestore, reception) }
+                    upload(firestore, receptionWithPhotos) }
                 if (rejection != null) Log.w(TAG, "Recepción ${reception.id} no se aplicó: $rejection")
                 dao.markSynced(reception.id)
             } catch (e: FirebaseFirestoreException) {

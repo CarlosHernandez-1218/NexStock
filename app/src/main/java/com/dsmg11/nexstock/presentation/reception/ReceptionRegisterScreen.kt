@@ -61,6 +61,14 @@ import androidx.compose.material3.RadioButton
 import com.dsmg11.nexstock.domain.model.ReceptionIncident
 import com.dsmg11.nexstock.domain.model.ReceptionIncidentType
 import androidx.compose.foundation.layout.height
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.core.content.ContextCompat
+import coil3.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 // MOV-48 y MOV-49: registrar lo que llegó de una orden, escaneando o digitando cantidades
 @Composable
@@ -273,13 +281,14 @@ fun ReceptionRegisterScreen(
                     incidentItem = null
                 },
 
-                onConfirm = { type, observation ->
+                onConfirm = { type, observation, photoLocalUri ->
 
                     viewModel.onAddIncident(
                         productCode = item.code,
                         productName = item.name,
                         type = type,
-                        observation = observation
+                        observation = observation,
+                        photoLocalUri = photoLocalUri
                     )
 
                     // Cierra el diálogo después de registrar
@@ -418,7 +427,8 @@ private fun ReceptionIncidentDialog(
     onDismiss: () -> Unit,
     onConfirm: (
         ReceptionIncidentType,
-        String
+        String,
+        String?
     ) -> Unit
 ) {
     var selectedType by remember(item.code) {
@@ -430,6 +440,32 @@ private fun ReceptionIncidentDialog(
     var observation by remember(item.code) {
         mutableStateOf("")
     }
+
+    var photoLocalUri by remember(item.code) {
+        mutableStateOf<String?>(null)
+    }
+
+    var showCamera by remember {
+        mutableStateOf(false)
+    }
+
+    val context = LocalContext.current
+
+    val cameraPermissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+
+            if (granted) {
+                showCamera = true
+            } else {
+                Toast.makeText(
+                    context,
+                    "Se necesita permiso de cámara para registrar la evidencia",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -508,6 +544,61 @@ private fun ReceptionIncidentDialog(
                     modifier =
                         Modifier.fillMaxWidth()
                 )
+
+                FilledTonalButton(
+                    onClick = {
+
+                        val permissionGranted =
+                            ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                        if (permissionGranted) {
+                            showCamera = true
+                        } else {
+                            cameraPermissionLauncher.launch(
+                                Manifest.permission.CAMERA
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = null
+                    )
+
+                    Spacer(
+                        modifier = Modifier.width(8.dp)
+                    )
+
+                    Text(
+                        if (photoLocalUri == null) {
+                            "Tomar foto de evidencia"
+                        } else {
+                            "Repetir fotografía"
+                        }
+                    )
+                }
+
+                photoLocalUri?.let { uri ->
+
+                    Text(
+                        text = "Evidencia fotográfica",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = "Evidencia de la incidencia",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                    )
+                }
             }
         },
 
@@ -517,11 +608,13 @@ private fun ReceptionIncidentDialog(
                 onClick = {
                     onConfirm(
                         selectedType,
-                        observation.trim()
+                        observation.trim(),
+                        photoLocalUri
                     )
                 },
                 enabled =
-                    observation.isNotBlank()
+                    observation.isNotBlank() &&
+                            !photoLocalUri.isNullOrBlank()
             ) {
                 Text("Agregar")
             }
@@ -536,6 +629,22 @@ private fun ReceptionIncidentDialog(
             }
         }
     )
+
+    if (showCamera) {
+
+        ReceptionEvidenceCamera(
+
+            onDismiss = {
+                showCamera = false
+            },
+
+            onPhotoCaptured = { uri ->
+
+                photoLocalUri = uri
+                showCamera = false
+            }
+        )
+    }
 }
 @Composable
 private fun QuantityTag(label: String, value: Int, color: Color) {

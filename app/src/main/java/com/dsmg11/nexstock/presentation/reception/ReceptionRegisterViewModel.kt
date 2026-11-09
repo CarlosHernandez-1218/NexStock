@@ -140,12 +140,22 @@ class ReceptionRegisterViewModel @Inject constructor(
         productCode: String,
         productName: String,
         type: ReceptionIncidentType,
-        observation: String
+        observation: String,
+        photoLocalUri: String? = null
     ) {
         val cleanObservation = observation.trim()
 
         if (cleanObservation.isBlank()) {
-            showMessage("Ingresa una observación para la incidencia")
+            showMessage(
+                "Ingresa una observación para la incidencia"
+            )
+            return
+        }
+
+        if (photoLocalUri.isNullOrBlank()) {
+            showMessage(
+                "Adjunta una fotografía de evidencia"
+            )
             return
         }
 
@@ -153,22 +163,25 @@ class ReceptionRegisterViewModel @Inject constructor(
             productCode = productCode,
             productName = productName,
             type = type,
-            observation = cleanObservation
+            observation = cleanObservation,
+
+            // MOV-55
+            photoLocalUri = photoLocalUri
         )
 
         _uiState.update { state ->
 
-            // Para un mismo producto y tipo se conserva una sola incidencia.
-            // Si vuelve a registrarse, se reemplaza por la información más reciente.
-            val updatedIncidents = state.incidents
-                .filterNot {
-                    it.productCode == productCode &&
-                            it.type == type
-                } + incident
+            val updatedIncidents =
+                state.incidents
+                    .filterNot {
+                        it.productCode == productCode &&
+                                it.type == type
+                    } + incident
 
             state.copy(
                 incidents = updatedIncidents,
-                message = "Incidencia ${type.displayName.lowercase()} registrada para $productName"
+                message =
+                    "Incidencia ${type.displayName.lowercase()} registrada para $productName"
             )
         }
     }
