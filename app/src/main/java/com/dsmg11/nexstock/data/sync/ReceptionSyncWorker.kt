@@ -27,6 +27,8 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.TimeUnit
+import android.net.Uri
+import com.google.firebase.storage.FirebaseStorage
 
 // MOV-51: sube a Firestore las recepciones guardadas sin conexión
 class ReceptionSyncWorker(
@@ -39,17 +41,22 @@ class ReceptionSyncWorker(
     interface Dependencies {
         fun receptionDao(): ReceptionDao
         fun firestore(): FirebaseFirestore
+        fun storage(): FirebaseStorage
     }
 
     override suspend fun doWork(): Result {
         val deps = EntryPointAccessors.fromApplication(applicationContext, Dependencies::class.java)
         val dao = deps.receptionDao()
         val firestore = deps.firestore()
+        val storage = deps.storage()
 
         for (entity in dao.getPending()) {
             val reception = entity.toDomain()
             try {
-                val rejection = withTimeout(30_000) { upload(firestore, reception) }
+                val rejection = withTimeout(30_000) {
+                    // HU08: primero se suben las evidencias fotográficas.
+                    val receptionWithPhotos = uploadIncidentPhotos(storage, reception)
+                    upload(firestore, reception) }
                 if (rejection != null) Log.w(TAG, "Recepción ${reception.id} no se aplicó: $rejection")
                 dao.markSynced(reception.id)
             } catch (e: FirebaseFirestoreException) {
@@ -66,7 +73,48 @@ class ReceptionSyncWorker(
         }
         return Result.success()
     }
+    private suspend fun uploadIncidentPhotos(
+        storage: FirebaseStorage,
+        reception: Reception
+    ): Reception {
 
+        val updatedIncidents = reception.incidents.map { incident ->
+
+            val localUri = incident.photoLocalUri
+
+            // Si no tiene foto o ya tiene URL remota, no hacemos nada.
+            if (
+                localUri.isNullOrBlank() ||
+                !incident.photoUrl.isNullOrBlank()
+            ) {
+                return@map incident
+            }
+
+            // Ruta determinística:
+            // si WorkManager reintenta, reutiliza el mismo archivo.
+            val fileName =
+                "${incident.productCode}_${incident.type.name}.jpg"
+
+            val photoRef = storage.reference.child(
+                "reception_incidents/${reception.id}/$fileName"
+            )
+
+            photoRef
+                .putFile(Uri.parse(localUri))
+                .await()
+
+            val downloadUrl =
+                photoRef.downloadUrl.await().toString()
+
+            incident.copy(
+                photoUrl = downloadUrl
+            )
+        }
+
+        return reception.copy(
+            incidents = updatedIncidents
+        )
+    }
     // Una sola transacción: crea la recepción, suma el stock y actualiza la orden.
     // Si la recepción ya existe (se subió antes), no hace nada: así el stock nunca se suma dos veces.
     private suspend fun upload(firestore: FirebaseFirestore, reception: Reception): String? {
