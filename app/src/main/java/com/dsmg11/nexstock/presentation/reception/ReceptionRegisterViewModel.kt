@@ -19,6 +19,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.dsmg11.nexstock.domain.model.ReceptionIncident
 import com.dsmg11.nexstock.domain.model.ReceptionIncidentType
+import com.dsmg11.nexstock.domain.model.ReceptionLocation
+import com.dsmg11.nexstock.domain.usecase.reception.GetCurrentReceptionLocationUseCase
 
 data class ReceptionRegisterUiState(
     val order: PurchaseOrder? = null,
@@ -27,6 +29,10 @@ data class ReceptionRegisterUiState(
     val quantities: Map<String, Int> = emptyMap(),   // código de producto -> cantidad recibida ahora
     // HU08: incidencias registradas durante esta recepción
     val incidents: List<ReceptionIncident> = emptyList(),
+    // MOV-56: ubicación obtenida automáticamente durante la recepción
+    val location: ReceptionLocation? = null,
+    val isLocating: Boolean = false,
+    val locationError: String? = null,
     val highlightedCode: String? = null,            // último producto escaneado
     val scanCount: Int = 0,                         // sube en cada escaneo válido (para desplazar la lista)
     val message: String? = null,
@@ -49,7 +55,9 @@ class ReceptionRegisterViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     observeOrder: ObserveOrderUseCase,
     private val findProductCode: FindProductCodeByBarcodeUseCase,
-    private val registerReception: RegisterReceptionUseCase
+    private val registerReception: RegisterReceptionUseCase,
+    private val getCurrentLocation:
+    GetCurrentReceptionLocationUseCase
 ) : ViewModel() {
 
     private val orderId: String = checkNotNull(savedStateHandle["orderId"])
@@ -196,14 +204,84 @@ class ReceptionRegisterViewModel @Inject constructor(
             )
         }
     }
+
+    // MOV-56: obtiene automáticamente la ubicación actual del almacenero
+    fun onLocationPermissionGranted() {
+
+        val currentState = _uiState.value
+
+        // Evita volver a solicitar la ubicación si ya existe
+        if (
+            currentState.location != null ||
+            currentState.isLocating
+        ) {
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                isLocating = true,
+                locationError = null
+            )
+        }
+
+        viewModelScope.launch {
+
+            getCurrentLocation()
+                .onSuccess { location ->
+
+                    _uiState.update {
+                        it.copy(
+                            location = location,
+                            isLocating = false,
+                            locationError = null
+                        )
+                    }
+                }
+                .onFailure { error ->
+
+                    _uiState.update {
+                        it.copy(
+                            isLocating = false,
+                            locationError =
+                                error.message
+                                    ?: "No se pudo obtener la ubicación"
+                        )
+                    }
+                }
+        }
+    }
+
+    fun onLocationPermissionDenied() {
+
+        _uiState.update {
+            it.copy(
+                location = null,
+                isLocating = false,
+                locationError =
+                    "Debes permitir el acceso a la ubicación para registrar la recepción"
+            )
+        }
+    }
     // MOV-50: guarda la recepción; el stock y la orden se actualizan al instante en el celular
     fun onSave() {
         val state = _uiState.value
         val order = state.order ?: return
+        val location = state.location
+
+        if (location == null) {
+            showMessage(
+                "Es necesario obtener la ubicación antes de registrar la recepción"
+            )
+            return
+        }
         if (!state.canReview) return
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
-            registerReception(order, state.quantities, state.incidents)
+            registerReception( order = order,
+                quantities = state.quantities,
+                incidents = state.incidents,
+                location = location )
                 .onSuccess { reception ->
                     val units = reception.items.sumOf { it.received }
                     _uiState.update {

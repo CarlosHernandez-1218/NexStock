@@ -115,6 +115,8 @@ dependencies {
     implementation(libs.tehras.charts)
     //  escáner de códigos de barras (Google Play services)
     implementation(libs.play.services.code.scanner)
+    // HU08 - MOV-56: ubicación GPS de la recepción
+    implementation(libs.play.services.location)
     // HU08 - MOV-55: evidencia fotográfica con CameraX
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)

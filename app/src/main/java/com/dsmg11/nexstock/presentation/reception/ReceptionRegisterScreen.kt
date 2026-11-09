@@ -69,6 +69,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.filled.LocationOn
 
 // MOV-48 y MOV-49: registrar lo que llegó de una orden, escaneando o digitando cantidades
 @Composable
@@ -78,6 +79,58 @@ fun ReceptionRegisterScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val locationPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract =
+                ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+
+            val fineGranted =
+                permissions[
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ] == true
+
+            val coarseGranted =
+                permissions[
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ] == true
+
+            if (fineGranted || coarseGranted) {
+                viewModel.onLocationPermissionGranted()
+            } else {
+                viewModel.onLocationPermissionDenied()
+            }
+        }
+
+    LaunchedEffect(Unit) {
+
+        val fineGranted =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+        val coarseGranted =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+        if (fineGranted || coarseGranted) {
+
+            viewModel.onLocationPermissionGranted()
+
+        } else {
+
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
     val listState = rememberLazyListState()
     var showReview by remember { mutableStateOf(false) }
     var incidentItem by remember {
@@ -143,6 +196,129 @@ fun ReceptionRegisterScreen(
                 "Esta orden está en estado ${order.status.displayName} y ya no admite recepciones"
             )
             else -> {
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color =
+                        MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                ) {
+
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+
+                        Icon(
+                            imageVector =
+                                Icons.Default.LocationOn,
+                            contentDescription = null
+                        )
+
+                        Spacer(
+                            modifier = Modifier.width(8.dp)
+                        )
+
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+
+                            Text(
+                                text = "Ubicación de recepción",
+                                style =
+                                    MaterialTheme.typography.labelLarge
+                            )
+
+                            when {
+
+                                uiState.isLocating -> {
+                                    Text(
+                                        "Obteniendo ubicación GPS…",
+                                        style =
+                                            MaterialTheme.typography.bodySmall
+                                    )
+                                }
+
+                                uiState.location != null -> {
+
+                                    Text(
+                                        text = "Ubicación GPS registrada",
+                                        style =
+                                            MaterialTheme.typography.bodySmall,
+                                        color =
+                                            MaterialTheme.colorScheme.primary
+                                    )
+
+                                    Text(
+                                        text =
+                                            "%.5f, %.5f".format(
+                                                uiState.location!!.latitude,
+                                                uiState.location!!.longitude
+                                            ),
+                                        style =
+                                            MaterialTheme.typography.labelSmall
+                                    )
+                                }
+
+                                uiState.locationError != null -> {
+                                    Text(
+                                        text =
+                                            uiState.locationError!!,
+                                        style =
+                                            MaterialTheme.typography.bodySmall,
+                                        color =
+                                            MaterialTheme.colorScheme.error
+                                    )
+                                }
+
+                                else -> {
+                                    Text(
+                                        "Ubicación pendiente",
+                                        style =
+                                            MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                if (
+                    uiState.location == null &&
+                    !uiState.isLocating
+                ) {
+
+                    TextButton(
+                        onClick = {
+
+                            val fineGranted =
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.ACCESS_FINE_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                            val coarseGranted =
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                            if (fineGranted || coarseGranted) {
+                                viewModel.onLocationPermissionGranted()
+                            } else {
+                                locationPermissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                )
+                            }
+                        }
+                    ) {
+                        Text("Reintentar ubicación")
+                    }
+                }
                 FilledTonalButton(
                     onClick = openScanner,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
